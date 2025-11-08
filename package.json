@@ -15,9 +15,49 @@
     "commands": [
       {
         "command": "AgentsMDGenerator.generateAgentsMd",
-        "title": "Generate AGENTS.md files for all folders"
+        "title": "Generate AGENTS.md files for all folders",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "AgentsMDGenerator.refreshTree",
+        "title": "Refresh AGENTS.md Tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "AgentsMDGenerator.openAgentsMd",
+        "title": "Open AGENTS.md"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "agentsTreeView",
+          "name": "AGENTS.md Status",
+          "icon": "media/icon.svg",
+          "contextualTitle": "AGENTS.md Generator"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "AgentsMDGenerator.generateAgentsMd",
+          "when": "view == agentsTreeView",
+          "group": "navigation"
+        },
+        {
+          "command": "AgentsMDGenerator.refreshTree",
+          "when": "view == agentsTreeView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "AgentsMDGenerator.openAgentsMd",
+          "when": "view == agentsTreeView && viewItem == folder"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
