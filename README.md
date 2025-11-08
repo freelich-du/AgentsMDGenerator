@@ -1,11 +1,11 @@
 # AGENTS.md Generator
 
-A VS Code extension that automatically generates AGENTS.md documentation files for all folders in your project using GitHub Copilot Chat. Features intelligent **leaf-to-root** traversal and a **tree view UI** to track generation status.
+A VS Code extension that automatically generates AGENTS.md documentation files for all folders in your project using GitHub Copilot Chat. Features intelligent **leaf-to-root** traversal and a **portal dashboard** to track generation status.
 
 ## Features
 
-- **🌳 Tree View UI**: Visual sidebar showing folder structure and AGENTS.md generation status
-- **📊 Real-time Status Tracking**: Watch generation progress with live status updates
+- **🪟 Portal Dashboard**: Dedicated sidebar view with a "Generate" button and live status cards
+- **📊 Real-time Status Tracking**: Watch generation progress with live summaries and folder list
 - **🍃 Leaf-to-Root Processing**: Processes deepest folders first, so parent folders can reference child documentation
 - **🧠 Contextual Documentation**: Parent folders include summaries of sub-folder AGENTS.md files
 - **⚙️ Configurable Prompts**: Easy-to-customize prompt templates in `promptConfig.ts`
@@ -21,18 +21,13 @@ A VS Code extension that automatically generates AGENTS.md documentation files f
 
 ## Usage
 
-### Using the Tree View (Recommended)
+### Using the Portal (Recommended)
 
 1. Open a workspace/folder in VS Code
-2. Look for **"AGENTS.md Status"** panel in the Explorer sidebar
-3. Click the **"+"** icon (Generate AGENTS.md files) in the panel toolbar
-4. Watch the tree view update with status icons in real-time:
-   - 🔵 Folder icon with checkmark = Has AGENTS.md
-   - ⚪ Folder icon = No AGENTS.md yet
-   - 🟡 Spinning sync icon = Currently generating
-   - 🟢 Check icon = Generation completed
-   - 🔴 Error icon = Generation failed
-5. Right-click any folder to open its AGENTS.md file
+2. Click the **"AGENTS.md"** icon in the activity bar (left edge) to open the portal
+3. Press the **"Generate AGENTS.md Files"** button in the portal view
+4. Watch the dashboard update with live metrics and a folder status list
+5. Re-run the button any time to regenerate documentation
 
 ### Using Command Palette
 
@@ -98,13 +93,12 @@ This extension currently has no configurable settings. Customize prompts by edit
 ### 0.0.2
 
 Major feature update:
-- 🌳 **Tree View UI**: Added sidebar panel showing folder structure and generation status
+- 🪟 **Portal Dashboard**: Replaced tree view with a webview portal and one-click generation button
 - 🍃 **Leaf-to-Root Processing**: Folders now processed from deepest to shallowest
 - 📚 **Contextual Documentation**: Parent folders include summaries of sub-folder docs
 - ⚙️ **Configurable Prompts**: Easy-to-edit prompt templates in `promptConfig.ts`
-- 🎨 **Status Icons**: Real-time visual feedback with color-coded status indicators
-- 🔄 **Refresh Command**: Manual tree view refresh capability
-- 📂 **Open AGENTS.md**: Right-click to open any folder's AGENTS.md
+- 📊 **Live Metrics**: Portal cards show totals for completed, in-progress, and failed folders
+- � **Status List**: Scrollable list of folder statuses within the portal
 
 ### 0.0.1
 

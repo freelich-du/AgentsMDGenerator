@@ -14,15 +14,24 @@ The extension provides automated documentation generation by:
 
 ### `src/extension.ts`
 Main extension implementation containing:
-- **activate()**: Extension activation and command registration
-- **getAllFolders()**: Recursive folder traversal with smart filtering (excludes node_modules, .git, dist, etc.)
-- **getFolderStructure()**: Analyzes folder contents and reads relevant source files
+- **activate()**: Registers the portal webview and generation command
+- **buildStatusSnapshot()**: Compiles folder status metrics for the portal dashboard
 - **generateAgentsMdForFolder()**: Integrates with Copilot Chat API to generate documentation
+- **updatePortalStatus()**: Streams progress updates to the portal UI
+
+### `src/folderScanner.ts`
+Builds a filtered folder tree and provides leaf-to-root ordering for documentation generation.
+
+### `src/portalViewProvider.ts`
+Creates the portal dashboard webview with a generate button, live metrics, and folder status list.
+
+### `src/statusTypes.ts`
+Shared status enums and interfaces for keeping the portal and generator in sync.
 
 ### `package.json`
 Extension manifest defining:
 - Extension metadata (name, version, description)
-- Activation events
+- Portal view container contribution: `agentsPortalView`
 - Command contributions: `AgentsMDGenerator.generateAgentsMd`
 - Dependencies and build scripts
 
@@ -45,14 +54,15 @@ VS Code workspace settings including:
 - **GitHub Copilot**: Required for AI-powered documentation generation
 
 ## Usage Flow
-1. User invokes command via Command Palette
-2. Extension validates workspace is open
-3. Recursive folder scan identifies all directories
-4. For each folder:
+1. User opens the AGENTS.md portal and clicks **Generate AGENTS.md Files** (or runs the command)
+2. Extension validates workspace is open and builds the folder tree
+3. Portal dashboard initializes counts and folder statuses
+4. For each folder (leaf-to-root order):
    - Reads directory structure and file contents
-   - Constructs analysis prompt
-   - Calls Copilot Chat API with folder context
+   - Uses sub-folder AGENTS.md files for context when available
+   - Calls Copilot Chat API with assembled prompt
    - Streams response and writes AGENTS.md
+   - Updates portal metrics and status list in real time
 5. Progress notifications keep user informed
 6. Error handling provides fallback documentation
 

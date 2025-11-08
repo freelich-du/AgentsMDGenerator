@@ -3,10 +3,14 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AgentsTreeDataProvider, GenerationStatus, FolderNode } from './treeViewProvider';
+import { buildFolderTree, flattenFoldersByDepth, FolderNode } from './folderScanner';
 import { buildPrompt } from './promptConfig';
+import { PortalViewProvider } from './portalViewProvider';
+import { GenerationStatus, StatusSnapshot } from './statusTypes';
 
-let treeDataProvider: AgentsTreeDataProvider | undefined;
+let portalViewProvider: PortalViewProvider | undefined;
+let folderStatusMap: Map<string, GenerationStatus> = new Map();
+let discoveredFolders: FolderNode[] = [];
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -14,16 +18,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	console.log('AGENTS.md Generator extension is now active!');
 
-	// Initialize tree view
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	treeDataProvider = new AgentsTreeDataProvider(workspaceRoot);
-	
-	const treeView = vscode.window.createTreeView('agentsTreeView', {
-		treeDataProvider: treeDataProvider,
-		showCollapseAll: true
-	});
-
-	context.subscriptions.push(treeView);
+	portalViewProvider = new PortalViewProvider(context.extensionUri);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(PortalViewProvider.viewType, portalViewProvider)
+	);
 
 	// Register the command to generate AGENTS.md files
 	const generateCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateAgentsMd', async () => {
@@ -35,26 +33,32 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-			
-			// Refresh tree view to get latest structure
-			treeDataProvider?.refresh();
-			
+
+			const rootNode = await buildFolderTree(workspaceRoot);
+			discoveredFolders = flattenFoldersByDepth(rootNode);
+			folderStatusMap = new Map(
+				discoveredFolders.map((folder) => [folder.path, GenerationStatus.NotStarted])
+			);
+			updatePortalStatus();
+
 			// Show progress indicator
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
 				title: "Generating AGENTS.md files",
 				cancellable: true
 			}, async (progress, token) => {
-				// Get all folders sorted by depth (deepest first - leaf to root)
-				const folders = treeDataProvider?.getAllFoldersSortedByDepth() || [];
-				
-				progress.report({ message: `Found ${folders.length} folders to process (leaf to root)` });
-				
+				const totalFolders = discoveredFolders.length;
+				progress.report({ message: `Found ${totalFolders} folders to process (leaf to root)` });
+
+				if (totalFolders === 0) {
+					vscode.window.showInformationMessage('No eligible folders found to document.');
+					return;
+				}
+
 				let processed = 0;
-				const totalFolders = folders.length;
 
 				// Process each folder from leaf to root
-				for (const folderNode of folders) {
+				for (const folderNode of discoveredFolders) {
 					if (token.isCancellationRequested) {
 						vscode.window.showWarningMessage('AGENTS.md generation cancelled');
 						return;
@@ -65,20 +69,20 @@ export function activate(context: vscode.ExtensionContext) {
 						increment: (100 / totalFolders)
 					});
 
-					treeDataProvider?.updateStatus(folderNode.path, GenerationStatus.InProgress);
+					folderStatusMap.set(folderNode.path, GenerationStatus.InProgress);
+					updatePortalStatus();
 					
 					const success = await generateAgentsMdForFolder(folderNode);
 					
-					treeDataProvider?.updateStatus(
-						folderNode.path, 
+					folderStatusMap.set(
+						folderNode.path,
 						success ? GenerationStatus.Completed : GenerationStatus.Failed
 					);
+					updatePortalStatus();
 					
 					processed++;
 				}
 
-				// Final refresh of tree view
-				treeDataProvider?.refresh();
 				vscode.window.showInformationMessage(`Successfully generated AGENTS.md for ${processed} folders!`);
 			});
 
@@ -87,23 +91,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// Register refresh command
-	const refreshCommand = vscode.commands.registerCommand('AgentsMDGenerator.refreshTree', () => {
-		treeDataProvider?.refresh();
-	});
-
-	// Register command to open AGENTS.md file
-	const openAgentsCommand = vscode.commands.registerCommand('AgentsMDGenerator.openAgentsMd', async (node: FolderNode) => {
-		const agentsPath = path.join(node.path, 'AGENTS.md');
-		if (fs.existsSync(agentsPath)) {
-			const doc = await vscode.workspace.openTextDocument(agentsPath);
-			await vscode.window.showTextDocument(doc);
-		} else {
-			vscode.window.showWarningMessage(`AGENTS.md not found in ${node.name}`);
-		}
-	});
-
-	context.subscriptions.push(generateCommand, refreshCommand, openAgentsCommand);
+	context.subscriptions.push(generateCommand);
 }
 
 /**
@@ -174,6 +162,54 @@ async function getSubfolderAgentsDocs(folderNode: FolderNode): Promise<Map<strin
 	}
 	
 	return subfolderDocs;
+}
+
+function updatePortalStatus() {
+	if (!portalViewProvider) {
+		return;
+	}
+	const snapshot = buildStatusSnapshot();
+	portalViewProvider.update(snapshot);
+}
+
+function buildStatusSnapshot(): StatusSnapshot {
+	const total = discoveredFolders.length;
+	let completed = 0;
+	let inProgress = 0;
+	let failed = 0;
+
+	const sortedForDisplay = [...discoveredFolders].sort((a, b) =>
+		a.path.localeCompare(b.path)
+	);
+
+	const items = sortedForDisplay.map((folder) => {
+		const status = folderStatusMap.get(folder.path) ?? GenerationStatus.NotStarted;
+		switch (status) {
+			case GenerationStatus.Completed:
+				completed++;
+				break;
+			case GenerationStatus.InProgress:
+				inProgress++;
+				break;
+			case GenerationStatus.Failed:
+				failed++;
+				break;
+		}
+		return {
+			path: folder.path,
+			name: folder.name,
+			status
+		};
+	});
+
+	return {
+		total,
+		completed,
+		inProgress,
+		failed,
+		items,
+		lastUpdated: new Date().toLocaleTimeString()
+	};
 }
 
 /**

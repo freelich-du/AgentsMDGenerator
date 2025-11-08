@@ -10,12 +10,15 @@
 
 3. **In the new window:**
    - Open a folder/workspace (File > Open Folder)
-   - Open Command Palette: `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
-   - Type: **"Generate AGENTS.md files for all folders"**
-   - Select the command
+   - Open the **AGENTS.md** portal from the activity bar
+   - Click **Generate AGENTS.md Files** inside the portal **or** run the command manually:
+     - Open Command Palette: `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
+     - Type: **"Generate AGENTS.md files for all folders"**
+     - Select the command
 
 4. **Watch the magic happen:**
    - Progress notification appears
+   - Portal dashboard shows live totals and folder statuses
    - Extension scans all folders
    - GitHub Copilot analyzes each folder
    - AGENTS.md files are created

@@ -9,7 +9,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -17,44 +16,22 @@
         "command": "AgentsMDGenerator.generateAgentsMd",
         "title": "Generate AGENTS.md files for all folders",
         "icon": "$(file-add)"
-      },
-      {
-        "command": "AgentsMDGenerator.refreshTree",
-        "title": "Refresh AGENTS.md Tree",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "AgentsMDGenerator.openAgentsMd",
-        "title": "Open AGENTS.md"
       }
     ],
-    "views": {
-      "explorer": [
+    "viewsContainers": {
+      "activitybar": [
         {
-          "id": "agentsTreeView",
-          "name": "AGENTS.md Status",
-          "icon": "media/icon.svg",
-          "contextualTitle": "AGENTS.md Generator"
+          "id": "agentsPortalContainer",
+          "title": "AGENTS.md",
+          "icon": "media/icon.svg"
         }
       ]
     },
-    "menus": {
-      "view/title": [
+    "views": {
+      "agentsPortalContainer": [
         {
-          "command": "AgentsMDGenerator.generateAgentsMd",
-          "when": "view == agentsTreeView",
-          "group": "navigation"
-        },
-        {
-          "command": "AgentsMDGenerator.refreshTree",
-          "when": "view == agentsTreeView",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "AgentsMDGenerator.openAgentsMd",
-          "when": "view == agentsTreeView && viewItem == folder"
+          "id": "agentsPortalView",
+          "name": "Portal"
         }
       ]
     }
