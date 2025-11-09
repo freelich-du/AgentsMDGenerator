@@ -9,6 +9,7 @@ export interface StatusItem {
 	path: string;
 	name: string;
 	relativePath: string;
+	depth: number;
 	status: GenerationStatus;
 	hasAgentsFile: boolean;
 	agentsUpdatedAt?: string;

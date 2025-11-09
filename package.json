@@ -11,35 +11,23 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:agentsPortalView"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
+        "command": "AgentsMDGenerator.openPortal",
+        "title": "Open AGENTS.md Portal",
+        "category": "AGENTS.md"
+      },
+      {
         "command": "AgentsMDGenerator.generateAgentsMd",
         "title": "Generate AGENTS.md files for all folders",
-        "icon": "$(file-add)"
+        "icon": "$(file-add)",
+        "category": "AGENTS.md"
       }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "agentsPortalContainer",
-          "title": "AGENTS.md",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "agentsPortalContainer": [
-        {
-          "type": "webview",
-          "id": "agentsPortalView",
-          "name": "Portal"
-        }
-      ]
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

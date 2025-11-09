@@ -28,14 +28,19 @@ const TIMESTAMP_IGNORED_DIRECTORIES = new Set([
 export function activate(context: vscode.ExtensionContext) {
 
 	console.log('AGENTS.md Generator extension is now active!');
-	console.log('Registering webview provider for view type:', PortalViewProvider.viewType);
 
-	portalViewProvider = new PortalViewProvider(context.extensionUri);
+	portalViewProvider = new PortalViewProvider();
+	context.subscriptions.push(portalViewProvider);
+
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(PortalViewProvider.viewType, portalViewProvider)
+		vscode.commands.registerCommand('AgentsMDGenerator.openPortal', async () => {
+			if (!portalViewProvider) {
+				return;
+			}
+			await refreshWorkspaceFolders();
+			portalViewProvider.showPortal();
+		})
 	);
-	
-	console.log('Webview provider registered successfully');
 
 	void refreshWorkspaceFolders().catch((error) => {
 		console.error('Failed to refresh workspace folders during activation:', error);
@@ -60,6 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			await refreshWorkspaceFolders({ resetStatuses: true });
+			portalViewProvider?.showPortal();
 
 			// Show progress indicator
 			await vscode.window.withProgress({
@@ -200,11 +206,13 @@ async function buildStatusSnapshot(): Promise<StatusSnapshot> {
 
 	const items = await Promise.all(sortedForDisplay.map(async (folder) => {
 		const status = folderStatusMap.get(folder.path) ?? GenerationStatus.NotStarted;
+		const relativePath = computeRelativeFolderPath(folder.path);
 		const details = await getFolderStatusDetails(folder.path);
 		return {
 			path: folder.path,
 			name: folder.name,
-			relativePath: computeRelativeFolderPath(folder.path),
+			relativePath,
+			depth: computeFolderDepth(relativePath),
 			status,
 			...details
 		};
@@ -385,6 +393,14 @@ function computeRelativeFolderPath(folderPath: string): string {
 	}
 	const relative = path.relative(workspaceRootPath, folderPath);
 	return relative === '' ? '.' : relative;
+}
+
+function computeFolderDepth(relativePath: string): number {
+	if (!relativePath || relativePath === '.' || !workspaceRootPath) {
+		return 0;
+	}
+	const segments = relativePath.split(path.sep).filter((segment) => segment.length > 0);
+	return segments.length;
 }
 
 async function getLatestContentMtime(folderPath: string): Promise<number | undefined> {

@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { StatusSnapshot } from './statusTypes';
 
-export class PortalViewProvider implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'agentsPortalView';
-	private view?: vscode.WebviewView;
+export class PortalViewProvider implements vscode.Disposable {
+	public static readonly viewType = 'agentsPortalPanel';
+	private panel?: vscode.WebviewPanel;
+	private disposables: vscode.Disposable[] = [];
 	private latestSnapshot: StatusSnapshot = {
 		total: 0,
 		completed: 0,
@@ -13,47 +14,74 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 		lastUpdated: ''
 	};
 
-	constructor(private readonly extensionUri: vscode.Uri) {}
+	constructor() {}
 
-	resolveWebviewView(
-		webviewView: vscode.WebviewView,
-		_context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken
-	): void | Thenable<void> {
-		console.log('PortalViewProvider: resolveWebviewView called');
-		this.view = webviewView;
-		webviewView.webview.options = {
-			enableScripts: true
-		};
+	public showPortal(): void {
+		if (this.panel) {
+			this.panel.reveal(vscode.ViewColumn.One);
+			this.postSnapshot();
+			return;
+		}
 
-		webviewView.webview.html = this.getHtml(webviewView.webview);
-		console.log('PortalViewProvider: HTML set');
-
-		webviewView.webview.onDidReceiveMessage(async (message) => {
-			switch (message?.type) {
-				case 'generate':
-					await vscode.commands.executeCommand('AgentsMDGenerator.generateAgentsMd');
-					break;
+		this.panel = vscode.window.createWebviewPanel(
+			PortalViewProvider.viewType,
+			'AGENTS.md Portal',
+			{ viewColumn: vscode.ViewColumn.One, preserveFocus: false },
+			{
+				enableScripts: true,
+				retainContextWhenHidden: true
 			}
-		});
+		);
 
-		// Send initial snapshot
+		this.panel.webview.html = this.getHtml(this.panel.webview);
+
+		this.disposables.push(
+			this.panel.webview.onDidReceiveMessage(async (message) => {
+				switch (message?.type) {
+					case 'generate':
+						await vscode.commands.executeCommand('AgentsMDGenerator.generateAgentsMd');
+						break;
+				}
+			})
+		);
+
+		this.panel.onDidDispose(() => this.clearPanel());
 		this.postSnapshot();
-		console.log('PortalViewProvider: Initial snapshot sent');
 	}
 
-	update(snapshot: StatusSnapshot) {
+	public update(snapshot: StatusSnapshot) {
 		this.latestSnapshot = snapshot;
 		this.postSnapshot();
 	}
 
+	public dispose(): void {
+		if (this.panel) {
+			const existingPanel = this.panel;
+			this.panel = undefined;
+			existingPanel.dispose();
+		}
+		this.clearPanel();
+	}
+
 	private postSnapshot() {
-		if (this.view) {
-			this.view.webview.postMessage({
+		if (this.panel) {
+			void this.panel.webview.postMessage({
 				type: 'statusUpdate',
 				data: this.latestSnapshot
 			});
 		}
+	}
+
+	private clearPanel() {
+		while (this.disposables.length > 0) {
+			const disposable = this.disposables.pop();
+			try {
+				disposable?.dispose();
+			} catch (error) {
+				console.error('Error disposing portal webview listener:', error);
+			}
+		}
+		this.panel = undefined;
 	}
 
 	private getHtml(webview: vscode.Webview): string {
@@ -183,6 +211,17 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 					padding: 28px;
 					color: var(--vscode-descriptionForeground);
 				}
+				.folder-label {
+					display: grid;
+					gap: 2px;
+				}
+				.folder-label__name {
+					font-weight: 600;
+				}
+				.folder-label__path {
+					font-size: 11px;
+					color: var(--vscode-descriptionForeground);
+				}
 				.status-badge,
 				.doc-tag {
 					display: inline-flex;
@@ -293,7 +332,23 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 							row.title = item.path;
 
 							const folderCell = document.createElement('td');
-							folderCell.textContent = item.relativePath || item.name;
+							const folderLabel = document.createElement('div');
+							folderLabel.className = 'folder-label';
+							folderLabel.style.paddingLeft = String((item.depth ?? 0) * 16) + 'px';
+
+							const folderName = document.createElement('span');
+							folderName.className = 'folder-label__name';
+							folderName.textContent = item.name || item.relativePath || item.path;
+							folderLabel.appendChild(folderName);
+
+							if (item.depth > 0 && item.relativePath && item.relativePath !== item.name) {
+								const folderPath = document.createElement('span');
+								folderPath.className = 'folder-label__path';
+								folderPath.textContent = item.relativePath;
+								folderLabel.appendChild(folderPath);
+							}
+
+							folderCell.appendChild(folderLabel);
 							row.appendChild(folderCell);
 
 							const statusCell = document.createElement('td');
@@ -436,7 +491,7 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 						</thead>
 						<tbody id="folderTableBody">
 							<tr class="empty-row">
-								<td colspan="5">No folders discovered yet. Click Generate to begin.</td>
+								<td colspan="5">Workspace has no folders to display.</td>
 							</tr>
 						</tbody>
 					</table>
