@@ -3,11 +3,15 @@
   "displayName": "AGENTS.md Generator",
   "description": "Generate AGENTS.md files for folders using GitHub Copilot Chat",
   "version": "0.0.1",
+  "publisher": "local-dev",
   "engines": {
     "vscode": "^1.105.0"
   },
   "categories": [
     "Other"
+  ],
+  "activationEvents": [
+    "onView:agentsPortalView"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -30,6 +34,7 @@
     "views": {
       "agentsPortalContainer": [
         {
+          "type": "webview",
           "id": "agentsPortalView",
           "name": "Portal"
         }

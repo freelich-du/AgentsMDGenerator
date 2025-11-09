@@ -17,11 +17,14 @@ let discoveredFolders: FolderNode[] = [];
 export function activate(context: vscode.ExtensionContext) {
 
 	console.log('AGENTS.md Generator extension is now active!');
+	console.log('Registering webview provider for view type:', PortalViewProvider.viewType);
 
 	portalViewProvider = new PortalViewProvider(context.extensionUri);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(PortalViewProvider.viewType, portalViewProvider)
 	);
+	
+	console.log('Webview provider registered successfully');
 
 	// Register the command to generate AGENTS.md files
 	const generateCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateAgentsMd', async () => {

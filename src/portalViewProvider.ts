@@ -20,12 +20,14 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken
 	): void | Thenable<void> {
+		console.log('PortalViewProvider: resolveWebviewView called');
 		this.view = webviewView;
 		webviewView.webview.options = {
 			enableScripts: true
 		};
 
 		webviewView.webview.html = this.getHtml(webviewView.webview);
+		console.log('PortalViewProvider: HTML set');
 
 		webviewView.webview.onDidReceiveMessage(async (message) => {
 			switch (message?.type) {
@@ -37,6 +39,7 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 
 		// Send initial snapshot
 		this.postSnapshot();
+		console.log('PortalViewProvider: Initial snapshot sent');
 	}
 
 	update(snapshot: StatusSnapshot) {
