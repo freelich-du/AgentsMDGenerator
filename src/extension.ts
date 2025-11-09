@@ -12,6 +12,7 @@ let portalViewProvider: PortalViewProvider | undefined;
 let folderStatusMap: Map<string, GenerationStatus> = new Map();
 let discoveredFolders: FolderNode[] = [];
 let workspaceRootPath = '';
+let selectedModelId: string | undefined;
 
 const TIMESTAMP_IGNORED_DIRECTORIES = new Set([
 	'node_modules',
@@ -29,6 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	console.log('AGENTS.md Generator extension is now active!');
 
+	// Load selected model from global state
+	selectedModelId = context.globalState.get<string>('selectedModelId');
+
 	portalViewProvider = new PortalViewProvider();
 	context.subscriptions.push(portalViewProvider);
 
@@ -38,7 +42,16 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 			await refreshWorkspaceFolders();
-			portalViewProvider.showPortal();
+			const availableModels = await getAvailableModels();
+			portalViewProvider.showPortal(availableModels, selectedModelId);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('AgentsMDGenerator.selectModel', async (modelId: string) => {
+			selectedModelId = modelId;
+			await context.globalState.update('selectedModelId', modelId);
+			vscode.window.showInformationMessage(`Selected model: ${modelId}`);
 		})
 	);
 
@@ -65,7 +78,8 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			await refreshWorkspaceFolders({ resetStatuses: true });
-			portalViewProvider?.showPortal();
+			const availableModels = await getAvailableModels();
+			portalViewProvider?.showPortal(availableModels, selectedModelId);
 
 			// Show progress indicator
 			await vscode.window.withProgress({
@@ -118,6 +132,26 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(generateCommand);
+}
+
+/**
+ * Get available language models from GitHub Copilot
+ */
+async function getAvailableModels(): Promise<Array<{ id: string; name: string; family: string; vendor: string }>> {
+	try {
+		const allModels = await vscode.lm.selectChatModels();
+		
+		// Map models to a simplified format
+		return allModels.map(model => ({
+			id: model.id,
+			name: model.name,
+			family: model.family,
+			vendor: model.vendor
+		}));
+	} catch (error) {
+		console.error('Error fetching available models:', error);
+		return [];
+	}
 }
 
 /**
@@ -261,13 +295,24 @@ async function generateAgentsMdForFolder(folderNode: FolderNode): Promise<boolea
 		const prompt = buildPrompt(folderStructure, subfolderDocs);
 		
 		// Select Copilot model
-		const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
+		let model: vscode.LanguageModelChat | undefined;
 		
-		if (models.length === 0) {
-			throw new Error('No Copilot models available. Please ensure GitHub Copilot is installed and active.');
+		if (selectedModelId) {
+			// Try to use the user-selected model
+			const models = await vscode.lm.selectChatModels({ id: selectedModelId });
+			if (models.length > 0) {
+				model = models[0];
+			}
 		}
 		
-		const model = models[0];
+		// Fallback to default model if selected model not available
+		if (!model) {
+			const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
+			if (models.length === 0) {
+				throw new Error('No Copilot models available. Please ensure GitHub Copilot is installed and active.');
+			}
+			model = models[0];
+		}
 		
 		// Create chat message
 		const messages = [

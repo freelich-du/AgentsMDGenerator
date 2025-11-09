@@ -13,13 +13,26 @@ export class PortalViewProvider implements vscode.Disposable {
 		items: [],
 		lastUpdated: ''
 	};
+	private availableModels: Array<{ id: string; name: string; family: string; vendor: string }> = [];
+	private selectedModelId?: string;
 
 	constructor() {}
 
-	public showPortal(): void {
+	public showPortal(
+		availableModels?: Array<{ id: string; name: string; family: string; vendor: string }>,
+		selectedModelId?: string
+	): void {
+		if (availableModels) {
+			this.availableModels = availableModels;
+		}
+		if (selectedModelId !== undefined) {
+			this.selectedModelId = selectedModelId;
+		}
+
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
 			this.postSnapshot();
+			this.postModels();
 			return;
 		}
 
@@ -41,12 +54,19 @@ export class PortalViewProvider implements vscode.Disposable {
 					case 'generate':
 						await vscode.commands.executeCommand('AgentsMDGenerator.generateAgentsMd');
 						break;
+					case 'selectModel':
+						if (message.modelId) {
+							this.selectedModelId = message.modelId;
+							await vscode.commands.executeCommand('AgentsMDGenerator.selectModel', message.modelId);
+						}
+						break;
 				}
 			})
 		);
 
 		this.panel.onDidDispose(() => this.clearPanel());
 		this.postSnapshot();
+		this.postModels();
 	}
 
 	public update(snapshot: StatusSnapshot) {
@@ -68,6 +88,18 @@ export class PortalViewProvider implements vscode.Disposable {
 			void this.panel.webview.postMessage({
 				type: 'statusUpdate',
 				data: this.latestSnapshot
+			});
+		}
+	}
+
+	private postModels() {
+		if (this.panel) {
+			void this.panel.webview.postMessage({
+				type: 'modelsUpdate',
+				data: {
+					models: this.availableModels,
+					selectedModelId: this.selectedModelId
+				}
 			});
 		}
 	}
@@ -109,6 +141,18 @@ export class PortalViewProvider implements vscode.Disposable {
 					justify-content: space-between;
 					gap: 12px;
 				}
+				.portal__header-left {
+					flex: 1;
+					display: flex;
+					flex-direction: column;
+					gap: 2px;
+				}
+				.portal__header-right {
+					display: flex;
+					flex-direction: column;
+					gap: 8px;
+					align-items: flex-end;
+				}
 				.portal__header h1 {
 					margin: 0;
 					font-size: 20px;
@@ -118,6 +162,36 @@ export class PortalViewProvider implements vscode.Disposable {
 					margin: 2px 0 0;
 					color: var(--vscode-descriptionForeground);
 					font-size: 12px;
+				}
+				.model-selector {
+					display: flex;
+					flex-direction: column;
+					gap: 4px;
+					min-width: 200px;
+				}
+				.model-selector-label {
+					font-size: 11px;
+					font-weight: 600;
+					text-transform: uppercase;
+					letter-spacing: 0.04em;
+					color: var(--vscode-descriptionForeground);
+				}
+				.model-select {
+					background: var(--vscode-dropdown-background);
+					color: var(--vscode-dropdown-foreground);
+					border: 1px solid var(--vscode-dropdown-border);
+					border-radius: 4px;
+					padding: 6px 8px;
+					font-size: 13px;
+					cursor: pointer;
+					font-family: var(--vscode-font-family);
+				}
+				.model-select:hover {
+					background: var(--vscode-dropdown-listBackground);
+				}
+				.model-select:focus {
+					outline: 1px solid var(--vscode-focusBorder);
+					outline-offset: -1px;
 				}
 				.generate-btn {
 					display: inline-flex;
@@ -276,9 +350,16 @@ export class PortalViewProvider implements vscode.Disposable {
 						flex-direction: column;
 						align-items: flex-start;
 					}
+					.portal__header-right {
+						width: 100%;
+						align-items: stretch;
+					}
 					.generate-btn {
 						width: 100%;
 						justify-content: center;
+					}
+					.model-selector {
+						width: 100%;
 					}
 				}
 			</style>
@@ -289,6 +370,7 @@ export class PortalViewProvider implements vscode.Disposable {
 				(() => {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
+					const modelSelect = document.getElementById('modelSelect');
 					const totalCountEl = document.getElementById('totalCount');
 					const completedCountEl = document.getElementById('completedCount');
 					const inProgressCountEl = document.getElementById('inProgressCount');
@@ -300,10 +382,17 @@ export class PortalViewProvider implements vscode.Disposable {
 						vscode.postMessage({ type: 'generate' });
 					});
 
+					modelSelect.addEventListener('change', (event) => {
+						const modelId = event.target.value;
+						vscode.postMessage({ type: 'selectModel', modelId: modelId });
+					});
+
 					window.addEventListener('message', event => {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
 							renderStatus(data);
+						} else if (type === 'modelsUpdate') {
+							renderModels(data);
 						}
 					});
 
@@ -369,6 +458,46 @@ export class PortalViewProvider implements vscode.Disposable {
 
 							tableBody.appendChild(row);
 						});
+					}
+
+					function renderModels(data) {
+						const models = data?.models || [];
+						const selectedId = data?.selectedModelId;
+						
+						modelSelect.innerHTML = '';
+						
+						if (models.length === 0) {
+							const option = document.createElement('option');
+							option.value = '';
+							option.textContent = 'No models available';
+							modelSelect.appendChild(option);
+							modelSelect.disabled = true;
+							return;
+						}
+						
+						modelSelect.disabled = false;
+						
+						// Add default option
+						const defaultOption = document.createElement('option');
+						defaultOption.value = '';
+						defaultOption.textContent = 'Auto (gpt-4o)';
+						modelSelect.appendChild(defaultOption);
+						
+						// Add available models
+						models.forEach(model => {
+							const option = document.createElement('option');
+							option.value = model.id;
+							option.textContent = model.name + ' (' + model.family + ')';
+							if (model.id === selectedId) {
+								option.selected = true;
+							}
+							modelSelect.appendChild(option);
+						});
+						
+						// Select the default if no model is selected
+						if (!selectedId) {
+							defaultOption.selected = true;
+						}
 					}
 
 					function formatTimestamp(value) {
@@ -447,11 +576,19 @@ export class PortalViewProvider implements vscode.Disposable {
 	<body>
 		<div class="portal">
 			<div class="portal__header">
-				<div>
+				<div class="portal__header-left">
 					<h1>AGENTS.md Portal</h1>
 					<p>AI-powered documentation overview</p>
 				</div>
-				<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
+				<div class="portal__header-right">
+					<div class="model-selector">
+						<label class="model-selector-label" for="modelSelect">LLM Model</label>
+						<select id="modelSelect" class="model-select">
+							<option value="">Loading models...</option>
+						</select>
+					</div>
+					<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
+				</div>
 			</div>
 
 			<section class="portal__metrics">
