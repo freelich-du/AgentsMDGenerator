@@ -1,15 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-
-const IGNORED_DIRECTORIES = new Set([
-	'node_modules',
-	'.git',
-	'dist',
-	'out',
-	'build',
-	'.vscode',
-	'coverage'
-]);
+import { shouldIgnoreFolder } from './ignoreConfig';
 
 export interface FolderNode {
 	path: string;
@@ -32,7 +23,7 @@ async function buildFolderNode(folderPath: string): Promise<FolderNode> {
 		const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
 
 		for (const entry of entries) {
-			if (entry.isDirectory() && !IGNORED_DIRECTORIES.has(entry.name)) {
+			if (entry.isDirectory() && !shouldIgnoreFolder(entry.name)) {
 				const childPath = path.join(folderPath, entry.name);
 				const childNode = await buildFolderNode(childPath);
 				node.children.push(childNode);
