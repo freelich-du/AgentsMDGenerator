@@ -11,6 +11,17 @@ import { GenerationStatus, StatusSnapshot } from './statusTypes';
 let portalViewProvider: PortalViewProvider | undefined;
 let folderStatusMap: Map<string, GenerationStatus> = new Map();
 let discoveredFolders: FolderNode[] = [];
+let workspaceRootPath = '';
+
+const TIMESTAMP_IGNORED_DIRECTORIES = new Set([
+	'node_modules',
+	'.git',
+	'dist',
+	'out',
+	'build',
+	'.vscode',
+	'coverage'
+]);
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -26,23 +37,29 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	console.log('Webview provider registered successfully');
 
+	void refreshWorkspaceFolders().catch((error) => {
+		console.error('Failed to refresh workspace folders during activation:', error);
+	});
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeWorkspaceFolders(() => {
+			void refreshWorkspaceFolders().catch((error) => {
+				console.error('Failed to refresh workspace folders after change:', error);
+			});
+		})
+	);
+
 	// Register the command to generate AGENTS.md files
 	const generateCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateAgentsMd', async () => {
 		try {
 			// Check if workspace is open
 			if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+				workspaceRootPath = '';
 				vscode.window.showErrorMessage('No workspace folder is open. Please open a folder first.');
 				return;
 			}
 
-			const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-
-			const rootNode = await buildFolderTree(workspaceRoot);
-			discoveredFolders = flattenFoldersByDepth(rootNode);
-			folderStatusMap = new Map(
-				discoveredFolders.map((folder) => [folder.path, GenerationStatus.NotStarted])
-			);
-			updatePortalStatus();
+			await refreshWorkspaceFolders({ resetStatuses: true });
 
 			// Show progress indicator
 			await vscode.window.withProgress({
@@ -73,7 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
 					});
 
 					folderStatusMap.set(folderNode.path, GenerationStatus.InProgress);
-					updatePortalStatus();
+					await updatePortalStatus();
 					
 					const success = await generateAgentsMdForFolder(folderNode);
 					
@@ -81,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 						folderNode.path,
 						success ? GenerationStatus.Completed : GenerationStatus.Failed
 					);
-					updatePortalStatus();
+					await updatePortalStatus();
 					
 					processed++;
 				}
@@ -167,27 +184,38 @@ async function getSubfolderAgentsDocs(folderNode: FolderNode): Promise<Map<strin
 	return subfolderDocs;
 }
 
-function updatePortalStatus() {
+async function updatePortalStatus() {
 	if (!portalViewProvider) {
 		return;
 	}
-	const snapshot = buildStatusSnapshot();
+	const snapshot = await buildStatusSnapshot();
 	portalViewProvider.update(snapshot);
 }
 
-function buildStatusSnapshot(): StatusSnapshot {
+async function buildStatusSnapshot(): Promise<StatusSnapshot> {
 	const total = discoveredFolders.length;
-	let completed = 0;
-	let inProgress = 0;
-	let failed = 0;
-
 	const sortedForDisplay = [...discoveredFolders].sort((a, b) =>
 		a.path.localeCompare(b.path)
 	);
 
-	const items = sortedForDisplay.map((folder) => {
+	const items = await Promise.all(sortedForDisplay.map(async (folder) => {
 		const status = folderStatusMap.get(folder.path) ?? GenerationStatus.NotStarted;
-		switch (status) {
+		const details = await getFolderStatusDetails(folder.path);
+		return {
+			path: folder.path,
+			name: folder.name,
+			relativePath: computeRelativeFolderPath(folder.path),
+			status,
+			...details
+		};
+	}));
+
+	let completed = 0;
+	let inProgress = 0;
+	let failed = 0;
+
+	for (const item of items) {
+		switch (item.status) {
 			case GenerationStatus.Completed:
 				completed++;
 				break;
@@ -198,12 +226,7 @@ function buildStatusSnapshot(): StatusSnapshot {
 				failed++;
 				break;
 		}
-		return {
-			path: folder.path,
-			name: folder.name,
-			status
-		};
-	});
+	}
 
 	return {
 		total,
@@ -280,3 +303,130 @@ async function generateAgentsMdForFolder(folderNode: FolderNode): Promise<boolea
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
+
+interface FolderDocStatusDetails {
+	hasAgentsFile: boolean;
+	agentsUpdatedAt?: string;
+	contentUpdatedAt?: string;
+	isUpToDate: boolean;
+}
+
+interface RefreshOptions {
+	resetStatuses?: boolean;
+}
+
+async function refreshWorkspaceFolders(options: RefreshOptions = {}): Promise<void> {
+	const { resetStatuses = false } = options;
+
+	if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+		workspaceRootPath = '';
+		discoveredFolders = [];
+		folderStatusMap = new Map();
+		await updatePortalStatus();
+		return;
+	}
+
+	const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+	workspaceRootPath = workspaceRoot;
+
+	try {
+		const rootNode = await buildFolderTree(workspaceRoot);
+		const flattened = flattenFoldersByDepth(rootNode);
+		const previousStatuses = folderStatusMap;
+		const nextStatusMap = new Map<string, GenerationStatus>();
+
+		for (const folder of flattened) {
+			const existing = previousStatuses.get(folder.path);
+			const status = resetStatuses ? GenerationStatus.NotStarted : (existing ?? GenerationStatus.NotStarted);
+			nextStatusMap.set(folder.path, status);
+		}
+
+		discoveredFolders = flattened;
+		folderStatusMap = nextStatusMap;
+	} catch (error) {
+		console.error('Error building folder tree for workspace snapshot:', error);
+		discoveredFolders = [];
+		folderStatusMap = new Map();
+	}
+
+	await updatePortalStatus();
+}
+
+async function getFolderStatusDetails(folderPath: string): Promise<FolderDocStatusDetails> {
+	const agentsPath = path.join(folderPath, 'AGENTS.md');
+	let agentsMtimeMs: number | undefined;
+
+	try {
+		const stat = await fs.promises.stat(agentsPath);
+		if (stat.isFile()) {
+			agentsMtimeMs = stat.mtimeMs;
+		}
+	} catch (error) {
+		// File might not exist – that's acceptable
+	}
+
+	const contentMtimeMs = await getLatestContentMtime(folderPath);
+	const hasAgentsFile = typeof agentsMtimeMs === 'number';
+	const isUpToDate = hasAgentsFile
+		? (typeof contentMtimeMs === 'number' ? agentsMtimeMs! >= contentMtimeMs : true)
+		: false;
+
+	return {
+		hasAgentsFile,
+		agentsUpdatedAt: agentsMtimeMs ? new Date(agentsMtimeMs).toISOString() : undefined,
+		contentUpdatedAt: contentMtimeMs ? new Date(contentMtimeMs).toISOString() : undefined,
+		isUpToDate
+	};
+}
+
+function computeRelativeFolderPath(folderPath: string): string {
+	if (!workspaceRootPath) {
+		return folderPath;
+	}
+	const relative = path.relative(workspaceRootPath, folderPath);
+	return relative === '' ? '.' : relative;
+}
+
+async function getLatestContentMtime(folderPath: string): Promise<number | undefined> {
+	let latest: number | undefined;
+
+	let entries: fs.Dirent[];
+	try {
+		entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+	} catch (error) {
+		console.error(`Error reading directory metadata for ${folderPath}:`, error);
+		return undefined;
+	}
+
+	for (const entry of entries) {
+		const entryPath = path.join(folderPath, entry.name);
+
+		if (entry.isSymbolicLink()) {
+			continue;
+		}
+
+		if (entry.isDirectory()) {
+			if (TIMESTAMP_IGNORED_DIRECTORIES.has(entry.name)) {
+				continue;
+			}
+			const childLatest = await getLatestContentMtime(entryPath);
+			if (typeof childLatest === 'number') {
+				latest = typeof latest === 'number' ? Math.max(latest, childLatest) : childLatest;
+			}
+			continue;
+		}
+
+		if (entry.name === 'AGENTS.md') {
+			continue;
+		}
+
+		try {
+			const stat = await fs.promises.stat(entryPath);
+			latest = typeof latest === 'number' ? Math.max(latest, stat.mtimeMs) : stat.mtimeMs;
+		} catch (error) {
+			console.error(`Error reading file metadata for ${entryPath}:`, error);
+		}
+	}
+
+	return latest;
+}

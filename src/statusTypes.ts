@@ -8,7 +8,12 @@ export enum GenerationStatus {
 export interface StatusItem {
 	path: string;
 	name: string;
+	relativePath: string;
 	status: GenerationStatus;
+	hasAgentsFile: boolean;
+	agentsUpdatedAt?: string;
+	contentUpdatedAt?: string;
+	isUpToDate: boolean;
 }
 
 export interface StatusSnapshot {

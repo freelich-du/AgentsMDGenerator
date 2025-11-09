@@ -61,152 +61,322 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 		const styles = `
 			<style>
 				body {
-					font-family: var(--vscode-font-family);
-					color: var(--vscode-foreground);
-					background-color: var(--vscode-sideBar-background);
 					margin: 0;
-					padding: 16px;
+					padding: 0;
+					background-color: var(--vscode-sideBar-background);
+					color: var(--vscode-foreground);
+					font-family: var(--vscode-font-family);
 				}
-				h1 {
-					font-size: 18px;
-					margin-bottom: 12px;
+				.portal {
+					padding: 14px 16px 18px;
+					box-sizing: border-box;
+					display: flex;
+					flex-direction: column;
+					gap: 14px;
+					min-height: 100vh;
 				}
-				button {
-					background-color: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
+				.portal__header {
+					display: flex;
+					align-items: flex-start;
+					justify-content: space-between;
+					gap: 12px;
+				}
+				.portal__header h1 {
+					margin: 0;
+					font-size: 20px;
+					font-weight: 600;
+				}
+				.portal__header p {
+					margin: 2px 0 0;
+					color: var(--vscode-descriptionForeground);
+					font-size: 12px;
+				}
+				.generate-btn {
+					display: inline-flex;
+					align-items: center;
+					gap: 8px;
+					background: var(--vscode-button-background, #0277bd);
+					color: var(--vscode-button-foreground, #ffffff);
 					border: none;
-					padding: 8px 12px;
-					border-radius: 4px;
+					border-radius: 6px;
+					padding: 8px 14px;
 					cursor: pointer;
+					font-weight: 600;
+					transition: background 0.2s ease, transform 0.2s ease;
 				}
-				button:hover {
-					background-color: var(--vscode-button-hoverBackground);
+				.generate-btn:hover {
+					background: var(--vscode-button-hoverBackground, #015a8c);
+					transform: translateY(-1px);
 				}
-				.status-grid {
+				.portal__metrics {
 					display: grid;
 					grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 					gap: 8px;
-					margin: 16px 0;
 				}
-				.status-card {
-					padding: 12px;
-					border-radius: 4px;
-					background-color: var(--vscode-editorWidget-background);
-					box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+				.metric-card {
+					display: flex;
+					flex-direction: column;
+					gap: 4px;
+					background: var(--vscode-editorWidget-background);
+					border-radius: 10px;
+					padding: 10px 12px;
+					border: 1px solid var(--vscode-editorGroup-border);
 				}
-				.status-card h2 {
-					margin: 0 0 4px;
-					font-size: 14px;
+				.metric-title {
+					font-size: 11px;
+					font-weight: 600;
+					letter-spacing: 0.04em;
+					text-transform: uppercase;
+					color: var(--vscode-descriptionForeground);
+				}
+				.metric-value {
+					font-size: 19px;
+					font-weight: 700;
+				}
+				.portal__status {
+					display: flex;
+					flex-direction: column;
+					gap: 12px;
+				}
+				.status-header {
+					display: flex;
+					flex-direction: column;
+					gap: 4px;
+				}
+				.status-header h2 {
+					margin: 0;
+					font-size: 16px;
 					font-weight: 600;
 				}
-				.status-card span {
-					font-size: 20px;
-					font-weight: bold;
+				.status-header__hint {
+					color: var(--vscode-descriptionForeground);
+					font-size: 12px;
 				}
-				.status-list {
-					margin-top: 16px;
-					max-height: 320px;
-					overflow-y: auto;
+				.table-container {
+					background: var(--vscode-editorWidget-background);
+					border: 1px solid var(--vscode-editorGroup-border);
+					border-radius: 12px;
+					overflow: hidden;
 				}
-				.status-item {
-					display: flex;
-					justify-content: space-between;
-					align-items: center;
-					padding: 8px 10px;
+				.status-table {
+					width: 100%;
+					border-collapse: collapse;
+				}
+				.status-table thead {
+					background: rgba(255, 255, 255, 0.04);
+				}
+				.status-table th,
+				.status-table td {
+					padding: 10px 14px;
+					font-size: 12px;
+					text-align: left;
 					border-bottom: 1px solid var(--vscode-editorGroup-border);
-					font-size: 13px;
 				}
-				.status-item:last-child {
+				.status-table tbody tr:hover {
+					background: rgba(255, 255, 255, 0.04);
+				}
+				.status-table tbody tr:last-child td {
 					border-bottom: none;
 				}
-				.status-pill {
-					padding: 2px 8px;
+				.status-table .empty-row td {
+					text-align: center;
+					padding: 28px;
+					color: var(--vscode-descriptionForeground);
+				}
+				.status-badge,
+				.doc-tag {
+					display: inline-flex;
+					align-items: center;
+					gap: 6px;
 					border-radius: 999px;
+					padding: 2px 10px;
 					font-size: 12px;
 					font-weight: 600;
 					text-transform: capitalize;
 				}
-				.status-pill.in-progress {
-					background-color: rgba(255, 215, 0, 0.15);
-					color: #ffd700;
+				.status-badge--completed {
+					background: rgba(76, 175, 80, 0.18);
+					color: #4caf50;
 				}
-				.status-pill.completed {
-					background-color: rgba(50, 205, 50, 0.15);
-					color: #32cd32;
+				.status-badge--in-progress {
+					background: rgba(33, 150, 243, 0.18);
+					color: #2196f3;
 				}
-				.status-pill.failed {
-					background-color: rgba(220, 20, 60, 0.15);
-					color: #dc143c;
+				.status-badge--failed {
+					background: rgba(244, 67, 54, 0.18);
+					color: #f44336;
 				}
-				.status-pill.not-started {
-					background-color: rgba(211, 211, 211, 0.1);
+				.status-badge--not-started {
+					background: rgba(158, 158, 158, 0.18);
 					color: var(--vscode-descriptionForeground);
 				}
-				.status-list .empty {
-					text-align: center;
-					padding: 24px 0;
+				.doc-tag--success {
+					background: rgba(67, 160, 71, 0.18);
+					color: #43a047;
+				}
+				.doc-tag--warning {
+					background: rgba(255, 193, 7, 0.25);
+					color: #ffb300;
+				}
+				.doc-tag--error {
+					background: rgba(239, 83, 80, 0.2);
+					color: #e53935;
+				}
+				.status-dot {
+					width: 8px;
+					height: 8px;
+					border-radius: 50%;
+					background: currentColor;
+				}
+				.status-footer {
+					font-size: 12px;
 					color: var(--vscode-descriptionForeground);
 				}
-				.footer {
-					margin-top: 16px;
-					font-size: 11px;
-					color: var(--vscode-descriptionForeground);
+				@media (max-width: 520px) {
+					.portal__header {
+						flex-direction: column;
+						align-items: flex-start;
+					}
+					.generate-btn {
+						width: 100%;
+						justify-content: center;
+					}
 				}
 			</style>
 		`;
 
 		const script = `
 			<script nonce="${nonce}">
-				const vscode = acquireVsCodeApi();
-				document.getElementById('generateButton').addEventListener('click', () => {
-					vscode.postMessage({ type: 'generate' });
-				});
+				(() => {
+					const vscode = acquireVsCodeApi();
+					const generateButton = document.getElementById('generateButton');
+					const totalCountEl = document.getElementById('totalCount');
+					const completedCountEl = document.getElementById('completedCount');
+					const inProgressCountEl = document.getElementById('inProgressCount');
+					const failedCountEl = document.getElementById('failedCount');
+					const tableBody = document.getElementById('folderTableBody');
+					const lastUpdatedEl = document.getElementById('lastUpdated');
 
-				window.addEventListener('message', event => {
-					const { type, data } = event.data;
-					if (type === 'statusUpdate') {
-						renderStatus(data);
-					}
-				});
-
-				function renderStatus(snapshot) {
-					document.getElementById('totalCount').innerText = String(snapshot.total);
-					document.getElementById('completedCount').innerText = String(snapshot.completed);
-					document.getElementById('inProgressCount').innerText = String(snapshot.inProgress);
-					document.getElementById('failedCount').innerText = String(snapshot.failed);
-					document.getElementById('lastUpdated').innerText = snapshot.lastUpdated || '--';
-
-					const list = document.getElementById('statusList');
-					list.innerHTML = '';
-
-					if (snapshot.items.length === 0) {
-						const empty = document.createElement('div');
-						empty.className = 'empty';
-						empty.innerText = 'No folders discovered yet. Click Generate to begin.';
-						list.appendChild(empty);
-						return;
-					}
-
-					snapshot.items.forEach(item => {
-						const row = document.createElement('div');
-						row.className = 'status-item';
-
-						const name = document.createElement('span');
-						name.textContent = item.name;
-
-						const pill = document.createElement('span');
-						pill.className = 'status-pill ' + item.status;
-						pill.textContent = titleCase(item.status.replace(/-/g, ' '));
-
-						row.appendChild(name);
-						row.appendChild(pill);
-						list.appendChild(row);
+					generateButton.addEventListener('click', () => {
+						vscode.postMessage({ type: 'generate' });
 					});
-				}
 
-				function titleCase(value) {
-					return value.replace(/\b\w/g, char => char.toUpperCase());
-				}
+					window.addEventListener('message', event => {
+						const { type, data } = event.data ?? {};
+						if (type === 'statusUpdate') {
+							renderStatus(data);
+						}
+					});
+
+					function renderStatus(snapshot) {
+						totalCountEl.textContent = String(snapshot?.total ?? 0);
+						completedCountEl.textContent = String(snapshot?.completed ?? 0);
+						inProgressCountEl.textContent = String(snapshot?.inProgress ?? 0);
+						failedCountEl.textContent = String(snapshot?.failed ?? 0);
+						lastUpdatedEl.textContent = snapshot?.lastUpdated || '--';
+
+						tableBody.innerHTML = '';
+
+						if (!snapshot?.items || snapshot.items.length === 0) {
+							const emptyRow = document.createElement('tr');
+							emptyRow.className = 'empty-row';
+							const cell = document.createElement('td');
+							cell.colSpan = 5;
+							cell.textContent = 'Workspace has no folders to display.';
+							emptyRow.appendChild(cell);
+							tableBody.appendChild(emptyRow);
+							return;
+						}
+
+						snapshot.items.forEach(item => {
+							const row = document.createElement('tr');
+							row.title = item.path;
+
+							const folderCell = document.createElement('td');
+							folderCell.textContent = item.relativePath || item.name;
+							row.appendChild(folderCell);
+
+							const statusCell = document.createElement('td');
+							statusCell.appendChild(createStatusBadge(item.status));
+							row.appendChild(statusCell);
+
+							const docsUpdatedCell = document.createElement('td');
+							docsUpdatedCell.textContent = formatTimestamp(item.agentsUpdatedAt);
+							row.appendChild(docsUpdatedCell);
+
+							const contentUpdatedCell = document.createElement('td');
+							contentUpdatedCell.textContent = formatTimestamp(item.contentUpdatedAt);
+							row.appendChild(contentUpdatedCell);
+
+							const docStateCell = document.createElement('td');
+							docStateCell.appendChild(createDocTag(item));
+							row.appendChild(docStateCell);
+
+							tableBody.appendChild(row);
+						});
+					}
+
+					function formatTimestamp(value) {
+						if (!value) {
+							return '--';
+						}
+						const date = new Date(value);
+						if (Number.isNaN(date.getTime())) {
+							return value;
+						}
+						return date.toLocaleString();
+					}
+
+					function createStatusBadge(status) {
+						const span = document.createElement('span');
+						const normalized = typeof status === 'string' ? status : 'not-started';
+						span.className = 'status-badge status-badge--' + normalized;
+						span.appendChild(createDot());
+						span.appendChild(document.createTextNode(statusLabel(normalized)));
+						return span;
+					}
+
+					function createDocTag(item) {
+						const span = document.createElement('span');
+						let variant;
+						let label;
+
+						if (!item.hasAgentsFile) {
+							variant = 'error';
+							label = 'Missing';
+						} else if (item.isUpToDate) {
+							variant = 'success';
+							label = 'Up to date';
+						} else {
+							variant = 'warning';
+							label = 'Needs update';
+						}
+
+						span.className = 'doc-tag doc-tag--' + variant;
+						span.appendChild(createDot());
+						span.appendChild(document.createTextNode(label));
+						return span;
+					}
+
+					function createDot() {
+						const dot = document.createElement('span');
+						dot.className = 'status-dot';
+						return dot;
+					}
+
+					function statusLabel(status) {
+						switch (status) {
+							case 'completed':
+								return 'Completed';
+							case 'in-progress':
+								return 'In progress';
+							case 'failed':
+								return 'Failed';
+							default:
+								return 'Not started';
+						}
+					}
+				})();
 			</script>
 		`;
 
@@ -219,29 +389,61 @@ export class PortalViewProvider implements vscode.WebviewViewProvider {
 	<title>AGENTS.md Portal</title>
 	${styles}
 </head>
-<body>
-	<h1>AGENTS.md Portal</h1>
-	<button id="generateButton">Generate AGENTS.md Files</button>
-	<div class="status-grid">
-		<div class="status-card">
-			<h2>Total Folders</h2>
-			<span id="totalCount">0</span>
+	<body>
+		<div class="portal">
+			<div class="portal__header">
+				<div>
+					<h1>AGENTS.md Portal</h1>
+					<p>AI-powered documentation overview</p>
+				</div>
+				<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
+			</div>
+
+			<section class="portal__metrics">
+				<div class="metric-card">
+					<span class="metric-title">Total Folders</span>
+					<span class="metric-value" id="totalCount">0</span>
+				</div>
+				<div class="metric-card">
+					<span class="metric-title">Completed</span>
+					<span class="metric-value" id="completedCount">0</span>
+				</div>
+				<div class="metric-card">
+					<span class="metric-title">In Progress</span>
+					<span class="metric-value" id="inProgressCount">0</span>
+				</div>
+				<div class="metric-card">
+					<span class="metric-title">Failed</span>
+					<span class="metric-value" id="failedCount">0</span>
+				</div>
+			</section>
+
+			<section class="portal__status">
+				<div class="status-header">
+					<h2>Folder Status</h2>
+					<span class="status-header__hint">Live view of documentation freshness</span>
+				</div>
+				<div class="table-container">
+					<table class="status-table">
+						<thead>
+							<tr>
+								<th>Folder</th>
+								<th>Generation</th>
+								<th>Docs Updated</th>
+								<th>Content Updated</th>
+								<th>Documentation</th>
+							</tr>
+						</thead>
+						<tbody id="folderTableBody">
+							<tr class="empty-row">
+								<td colspan="5">No folders discovered yet. Click Generate to begin.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="status-footer">Last updated: <span id="lastUpdated">--</span></div>
+			</section>
 		</div>
-		<div class="status-card">
-			<h2>Completed</h2>
-			<span id="completedCount">0</span>
-		</div>
-		<div class="status-card">
-			<h2>In Progress</h2>
-			<span id="inProgressCount">0</span>
-		</div>
-		<div class="status-card">
-			<h2>Failed</h2>
-			<span id="failedCount">0</span>
-		</div>
-	</div>
-	<div class="status-list" id="statusList"></div>
-	<div class="footer">Last updated: <span id="lastUpdated">--</span></div>
 	${script}
 </body>
 </html>`;
