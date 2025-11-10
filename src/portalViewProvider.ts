@@ -212,7 +212,8 @@ export class PortalViewProvider implements vscode.Disposable {
 				}
 				.portal__header-right {
 					display: flex;
-					align-items: flex-start;
+					align-items: center;
+					gap: 12px;
 				}
 				.portal__header h1 {
 					margin: 0;
@@ -226,26 +227,26 @@ export class PortalViewProvider implements vscode.Disposable {
 				}
 				.model-selector {
 					display: flex;
-					flex-direction: column;
-					gap: 4px;
-					min-width: 240px;
+					align-items: center;
+					gap: 8px;
+					min-width: auto;
 				}
 				.model-selector-label {
-					font-size: 11px;
+					font-size: 13px;
 					font-weight: 600;
-					text-transform: uppercase;
-					letter-spacing: 0.04em;
-					color: var(--vscode-descriptionForeground);
+					color: var(--vscode-foreground);
+					white-space: nowrap;
 				}
 				.model-select {
 					background: var(--vscode-dropdown-background);
 					color: var(--vscode-dropdown-foreground);
 					border: 1px solid var(--vscode-dropdown-border);
 					border-radius: 4px;
-					padding: 6px 8px;
+					padding: 7px 8px;
 					font-size: 13px;
 					cursor: pointer;
 					font-family: var(--vscode-font-family);
+					min-width: 200px;
 				}
 				.model-select:hover {
 					background: var(--vscode-dropdown-listBackground);
@@ -262,10 +263,12 @@ export class PortalViewProvider implements vscode.Disposable {
 					color: var(--vscode-button-foreground, #ffffff);
 					border: none;
 					border-radius: 6px;
-					padding: 8px 14px;
+					padding: 8px 16px;
 					cursor: pointer;
 					font-weight: 600;
+					font-size: 13px;
 					transition: background 0.2s ease, transform 0.2s ease;
+					white-space: nowrap;
 				}
 				.generate-btn:hover {
 					background: var(--vscode-button-hoverBackground, #015a8c);
@@ -515,6 +518,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					}
 					.portal__header-right {
 						width: 100%;
+						flex-direction: column;
 					}
 					.generate-btn {
 						width: 100%;
@@ -522,6 +526,9 @@ export class PortalViewProvider implements vscode.Disposable {
 					}
 					.model-selector {
 						width: 100%;
+					}
+					.model-select {
+						flex: 1;
 					}
 				}
 			</style>
@@ -859,15 +866,15 @@ export class PortalViewProvider implements vscode.Disposable {
 							<h1>AGENTS.md Portal</h1>
 							<p>AI-powered documentation overview</p>
 						</div>
-						<div class="model-selector">
-							<label class="model-selector-label" for="modelSelect">LLM Model</label>
-							<select id="modelSelect" class="model-select">
-								<option value="">Loading models...</option>
-							</select>
-						</div>
 					</div>
 				</div>
 				<div class="portal__header-right">
+					<div class="model-selector">
+						<label class="model-selector-label" for="modelSelect">LLM Model:</label>
+						<select id="modelSelect" class="model-select">
+							<option value="">Loading models...</option>
+						</select>
+					</div>
 					<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
 				</div>
 			</div>
