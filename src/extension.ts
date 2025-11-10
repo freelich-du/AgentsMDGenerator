@@ -7,6 +7,12 @@ import { buildFolderTree, flattenFoldersByDepth, FolderNode } from './folderScan
 import { buildPrompt } from './promptConfig';
 import { PortalViewProvider } from './portalViewProvider';
 import { GenerationStatus, StatusSnapshot } from './statusTypes';
+import { 
+	DEFAULT_IGNORED_FOLDER_NAMES, 
+	DEFAULT_IGNORED_FOLDER_PATTERNS,
+	updateIgnoreConfig,
+	getIgnoreConfig
+} from './ignoreConfig';
 
 let portalViewProvider: PortalViewProvider | undefined;
 let folderStatusMap: Map<string, GenerationStatus> = new Map();
@@ -33,6 +39,13 @@ export function activate(context: vscode.ExtensionContext) {
 	// Load selected model from global state
 	selectedModelId = context.globalState.get<string>('selectedModelId');
 
+	// Load ignore configuration from global state
+	const savedIgnoreNames = context.globalState.get<string[]>('ignoreNames');
+	const savedIgnorePatterns = context.globalState.get<string[]>('ignorePatterns');
+	if (savedIgnoreNames && savedIgnorePatterns) {
+		updateIgnoreConfig(savedIgnoreNames, savedIgnorePatterns);
+	}
+
 	portalViewProvider = new PortalViewProvider();
 	context.subscriptions.push(portalViewProvider);
 
@@ -43,7 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			await refreshWorkspaceFolders();
 			const availableModels = await getAvailableModels();
-			portalViewProvider.showPortal(availableModels, selectedModelId);
+			const ignoreConfig = getIgnoreConfig();
+			portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig);
 		})
 	);
 
@@ -52,6 +66,16 @@ export function activate(context: vscode.ExtensionContext) {
 			selectedModelId = modelId;
 			await context.globalState.update('selectedModelId', modelId);
 			vscode.window.showInformationMessage(`Selected model: ${modelId}`);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('AgentsMDGenerator.updateIgnoreConfig', async (names: string[], patterns: string[]) => {
+			updateIgnoreConfig(names, patterns);
+			await context.globalState.update('ignoreNames', names);
+			await context.globalState.update('ignorePatterns', patterns);
+			await refreshWorkspaceFolders();
+			vscode.window.showInformationMessage('Ignore configuration updated');
 		})
 	);
 
@@ -79,7 +103,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 			await refreshWorkspaceFolders({ resetStatuses: true });
 			const availableModels = await getAvailableModels();
-			portalViewProvider?.showPortal(availableModels, selectedModelId);
+			const ignoreConfig = getIgnoreConfig();
+			portalViewProvider?.showPortal(availableModels, selectedModelId, ignoreConfig);
 
 			// Show progress indicator
 			await vscode.window.withProgress({

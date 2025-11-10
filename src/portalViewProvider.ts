@@ -15,12 +15,14 @@ export class PortalViewProvider implements vscode.Disposable {
 	};
 	private availableModels: Array<{ id: string; name: string; family: string; vendor: string }> = [];
 	private selectedModelId?: string;
+	private ignoreConfig: { names: string[]; patterns: string[] } = { names: [], patterns: [] };
 
 	constructor() {}
 
 	public showPortal(
 		availableModels?: Array<{ id: string; name: string; family: string; vendor: string }>,
-		selectedModelId?: string
+		selectedModelId?: string,
+		ignoreConfig?: { names: string[]; patterns: string[] }
 	): void {
 		if (availableModels) {
 			this.availableModels = availableModels;
@@ -28,11 +30,15 @@ export class PortalViewProvider implements vscode.Disposable {
 		if (selectedModelId !== undefined) {
 			this.selectedModelId = selectedModelId;
 		}
+		if (ignoreConfig) {
+			this.ignoreConfig = ignoreConfig;
+		}
 
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
 			this.postSnapshot();
 			this.postModels();
+			this.postIgnoreConfig();
 			return;
 		}
 
@@ -60,6 +66,12 @@ export class PortalViewProvider implements vscode.Disposable {
 							await vscode.commands.executeCommand('AgentsMDGenerator.selectModel', message.modelId);
 						}
 						break;
+					case 'updateIgnoreConfig':
+						if (message.names && message.patterns) {
+							this.ignoreConfig = { names: message.names, patterns: message.patterns };
+							await vscode.commands.executeCommand('AgentsMDGenerator.updateIgnoreConfig', message.names, message.patterns);
+						}
+						break;
 				}
 			})
 		);
@@ -67,6 +79,7 @@ export class PortalViewProvider implements vscode.Disposable {
 		this.panel.onDidDispose(() => this.clearPanel());
 		this.postSnapshot();
 		this.postModels();
+		this.postIgnoreConfig();
 	}
 
 	public update(snapshot: StatusSnapshot) {
@@ -100,6 +113,15 @@ export class PortalViewProvider implements vscode.Disposable {
 					models: this.availableModels,
 					selectedModelId: this.selectedModelId
 				}
+			});
+		}
+	}
+
+	private postIgnoreConfig() {
+		if (this.panel) {
+			void this.panel.webview.postMessage({
+				type: 'ignoreConfigUpdate',
+				data: this.ignoreConfig
 			});
 		}
 	}
@@ -354,6 +376,104 @@ export class PortalViewProvider implements vscode.Disposable {
 					font-size: 12px;
 					color: var(--vscode-descriptionForeground);
 				}
+				.settings-section {
+					background: var(--vscode-editorWidget-background);
+					border: 1px solid var(--vscode-editorGroup-border);
+					border-radius: 12px;
+					overflow: hidden;
+				}
+				.settings-header {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					padding: 12px 16px;
+					cursor: pointer;
+					user-select: none;
+					background: rgba(255, 255, 255, 0.02);
+				}
+				.settings-header:hover {
+					background: rgba(255, 255, 255, 0.05);
+				}
+				.settings-header-left {
+					display: flex;
+					align-items: center;
+					gap: 8px;
+				}
+				.settings-header h3 {
+					margin: 0;
+					font-size: 14px;
+					font-weight: 600;
+				}
+				.settings-toggle {
+					font-size: 16px;
+					transition: transform 0.2s ease;
+				}
+				.settings-toggle.expanded {
+					transform: rotate(90deg);
+				}
+				.settings-content {
+					max-height: 0;
+					overflow: hidden;
+					transition: max-height 0.3s ease;
+				}
+				.settings-content.expanded {
+					max-height: 600px;
+					overflow-y: auto;
+				}
+				.settings-body {
+					padding: 16px;
+					display: flex;
+					flex-direction: column;
+					gap: 16px;
+				}
+				.settings-field {
+					display: flex;
+					flex-direction: column;
+					gap: 6px;
+				}
+				.settings-field-label {
+					font-size: 12px;
+					font-weight: 600;
+					color: var(--vscode-foreground);
+				}
+				.settings-field-hint {
+					font-size: 11px;
+					color: var(--vscode-descriptionForeground);
+					margin-top: 4px;
+				}
+				.settings-textarea {
+					background: var(--vscode-input-background);
+					color: var(--vscode-input-foreground);
+					border: 1px solid var(--vscode-input-border);
+					border-radius: 4px;
+					padding: 8px;
+					font-family: var(--vscode-editor-font-family);
+					font-size: 13px;
+					min-height: 120px;
+					resize: vertical;
+				}
+				.settings-textarea:focus {
+					outline: 1px solid var(--vscode-focusBorder);
+					outline-offset: -1px;
+				}
+				.settings-actions {
+					display: flex;
+					gap: 8px;
+					justify-content: flex-end;
+				}
+				.btn-secondary {
+					background: var(--vscode-button-secondaryBackground);
+					color: var(--vscode-button-secondaryForeground);
+					border: none;
+					border-radius: 4px;
+					padding: 6px 12px;
+					cursor: pointer;
+					font-size: 13px;
+					font-weight: 600;
+				}
+				.btn-secondary:hover {
+					background: var(--vscode-button-secondaryHoverBackground);
+				}
 				@media (max-width: 768px) {
 					.portal__header {
 						flex-direction: column;
@@ -383,12 +503,22 @@ export class PortalViewProvider implements vscode.Disposable {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
 					const modelSelect = document.getElementById('modelSelect');
+					const settingsHeader = document.getElementById('settingsHeader');
+					const settingsToggle = document.getElementById('settingsToggle');
+					const settingsContent = document.getElementById('settingsContent');
+					const ignoreNamesTextarea = document.getElementById('ignoreNamesTextarea');
+					const ignorePatternsTextarea = document.getElementById('ignorePatternsTextarea');
+					const saveSettingsButton = document.getElementById('saveSettings');
+					const resetSettingsButton = document.getElementById('resetSettings');
 					const totalCountEl = document.getElementById('totalCount');
 					const completedCountEl = document.getElementById('completedCount');
 					const inProgressCountEl = document.getElementById('inProgressCount');
 					const failedCountEl = document.getElementById('failedCount');
 					const tableBody = document.getElementById('folderTableBody');
 					const lastUpdatedEl = document.getElementById('lastUpdated');
+
+					let defaultIgnoreNames = [];
+					let defaultIgnorePatterns = [];
 
 					generateButton.addEventListener('click', () => {
 						vscode.postMessage({ type: 'generate' });
@@ -399,12 +529,44 @@ export class PortalViewProvider implements vscode.Disposable {
 						vscode.postMessage({ type: 'selectModel', modelId: modelId });
 					});
 
+					settingsHeader.addEventListener('click', () => {
+						const isExpanded = settingsContent.classList.contains('expanded');
+						if (isExpanded) {
+							settingsContent.classList.remove('expanded');
+							settingsToggle.classList.remove('expanded');
+						} else {
+							settingsContent.classList.add('expanded');
+							settingsToggle.classList.add('expanded');
+						}
+					});
+
+					saveSettingsButton.addEventListener('click', () => {
+						const namesText = ignoreNamesTextarea.value.trim();
+						const patternsText = ignorePatternsTextarea.value.trim();
+						
+						const names = namesText ? namesText.split('\\n').map(n => n.trim()).filter(n => n) : [];
+						const patterns = patternsText ? patternsText.split('\\n').map(p => p.trim()).filter(p => p) : [];
+						
+						vscode.postMessage({ 
+							type: 'updateIgnoreConfig', 
+							names: names,
+							patterns: patterns
+						});
+					});
+
+					resetSettingsButton.addEventListener('click', () => {
+						ignoreNamesTextarea.value = defaultIgnoreNames.join('\\n');
+						ignorePatternsTextarea.value = defaultIgnorePatterns.join('\\n');
+					});
+
 					window.addEventListener('message', event => {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
 							renderStatus(data);
 						} else if (type === 'modelsUpdate') {
 							renderModels(data);
+						} else if (type === 'ignoreConfigUpdate') {
+							renderIgnoreConfig(data);
 						}
 					});
 
@@ -510,6 +672,18 @@ export class PortalViewProvider implements vscode.Disposable {
 						if (!selectedId) {
 							defaultOption.selected = true;
 						}
+					}
+
+					function renderIgnoreConfig(data) {
+						if (!data) {
+							return;
+						}
+						
+						defaultIgnoreNames = data.names || [];
+						defaultIgnorePatterns = data.patterns || [];
+						
+						ignoreNamesTextarea.value = defaultIgnoreNames.join('\\n');
+						ignorePatternsTextarea.value = defaultIgnorePatterns.join('\\n');
 					}
 
 					function formatTimestamp(value) {
@@ -623,6 +797,43 @@ export class PortalViewProvider implements vscode.Disposable {
 				<div class="metric-card">
 					<span class="metric-title">Failed</span>
 					<span class="metric-value" id="failedCount">0</span>
+				</div>
+			</section>
+
+			<section class="settings-section">
+				<div id="settingsHeader" class="settings-header">
+					<div class="settings-header-left">
+						<span id="settingsToggle" class="settings-toggle">▶</span>
+						<h3>Ignore Configuration</h3>
+					</div>
+				</div>
+				<div id="settingsContent" class="settings-content">
+					<div class="settings-body">
+						<div class="settings-field">
+							<label class="settings-field-label" for="ignoreNamesTextarea">Ignored Folder Names</label>
+							<textarea 
+								id="ignoreNamesTextarea" 
+								class="settings-textarea" 
+								placeholder="Enter folder names (one per line)&#10;.git&#10;node_modules&#10;bin&#10;obj"
+							></textarea>
+							<span class="settings-field-hint">Exact folder names to ignore (one per line)</span>
+						</div>
+						
+						<div class="settings-field">
+							<label class="settings-field-label" for="ignorePatternsTextarea">Ignored Folder Patterns</label>
+							<textarea 
+								id="ignorePatternsTextarea" 
+								class="settings-textarea" 
+								placeholder="Enter patterns (one per line)&#10;*.log&#10;*-tmp&#10;.vs*"
+							></textarea>
+							<span class="settings-field-hint">Wildcard patterns (* for any characters, one per line)</span>
+						</div>
+						
+						<div class="settings-actions">
+							<button id="resetSettings" class="btn-secondary">Reset to Defaults</button>
+							<button id="saveSettings" class="generate-btn">Save Changes</button>
+						</div>
+					</div>
 				</div>
 			</section>
 

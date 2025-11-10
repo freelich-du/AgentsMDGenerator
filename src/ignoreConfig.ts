@@ -7,10 +7,10 @@
  */
 
 /**
- * List of folder names to ignore.
+ * Default list of folder names to ignore.
  * These are exact matches against folder names.
  */
-export const IGNORED_FOLDER_NAMES = [
+export const DEFAULT_IGNORED_FOLDER_NAMES = [
 	// Version Control
 	'.git',
 	'.svn',
@@ -83,7 +83,7 @@ export const IGNORED_FOLDER_NAMES = [
 ];
 
 /**
- * List of folder name patterns to ignore (using simple wildcard matching).
+ * Default list of folder name patterns to ignore (using simple wildcard matching).
  * Supports * wildcard for matching multiple characters.
  * 
  * Examples:
@@ -91,13 +91,35 @@ export const IGNORED_FOLDER_NAMES = [
  * - "*-tmp" matches "build-tmp", "cache-tmp", etc.
  * - "*.bak" matches "config.bak", "data.bak", etc.
  */
-export const IGNORED_FOLDER_PATTERNS = [
+export const DEFAULT_IGNORED_FOLDER_PATTERNS = [
 	'*.log',
 	'*.tmp',
 	'*-tmp',
 	'*-cache',
 	'.vs*', // Matches .vs, .vscode-server, etc.
 ];
+
+// Runtime configuration - these will be updated from user settings
+let runtimeIgnoredFolderNames: string[] = [...DEFAULT_IGNORED_FOLDER_NAMES];
+let runtimeIgnoredFolderPatterns: string[] = [...DEFAULT_IGNORED_FOLDER_PATTERNS];
+
+/**
+ * Update the runtime ignore configuration
+ */
+export function updateIgnoreConfig(names: string[], patterns: string[]): void {
+	runtimeIgnoredFolderNames = names;
+	runtimeIgnoredFolderPatterns = patterns;
+}
+
+/**
+ * Get current ignore configuration
+ */
+export function getIgnoreConfig(): { names: string[]; patterns: string[] } {
+	return {
+		names: [...runtimeIgnoredFolderNames],
+		patterns: [...runtimeIgnoredFolderPatterns]
+	};
+}
 
 /**
  * Checks if a folder name should be ignored based on the configured patterns.
@@ -106,12 +128,12 @@ export const IGNORED_FOLDER_PATTERNS = [
  */
 export function shouldIgnoreFolder(folderName: string): boolean {
 	// Check exact matches
-	if (IGNORED_FOLDER_NAMES.includes(folderName)) {
+	if (runtimeIgnoredFolderNames.includes(folderName)) {
 		return true;
 	}
 	
 	// Check pattern matches
-	for (const pattern of IGNORED_FOLDER_PATTERNS) {
+	for (const pattern of runtimeIgnoredFolderPatterns) {
 		if (matchesPattern(folderName, pattern)) {
 			return true;
 		}
