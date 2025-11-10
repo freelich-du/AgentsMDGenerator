@@ -124,6 +124,29 @@ To test this extension locally:
 npm run compile
 ```
 
+## Packaging as VSIX
+
+To create a distributable VSIX file that can be installed in VS Code:
+
+```bash
+npm run vsce:package
+```
+
+This will create a `.vsix` file in the root directory (e.g., `agents-md-generator-0.0.1.vsix`).
+
+### Installing the VSIX
+
+1. In VS Code, open the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`)
+2. Click the `...` menu at the top of the Extensions view
+3. Select **"Install from VSIX..."**
+4. Browse to and select your `.vsix` file
+
+Or install via command line:
+
+```bash
+code --install-extension agents-md-generator-0.0.1.vsix
+```
+
 ## License
 
 See LICENSE file for details.
