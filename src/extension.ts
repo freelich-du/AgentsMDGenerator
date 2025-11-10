@@ -13,6 +13,13 @@ import {
 	updateIgnoreConfig,
 	getIgnoreConfig
 } from './ignoreConfig';
+import {
+	DEFAULT_PROMPT_TEMPLATE,
+	DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE,
+	updatePromptConfig,
+	getPromptConfig,
+	PromptConfig
+} from './promptConfig';
 
 let portalViewProvider: PortalViewProvider | undefined;
 let folderStatusMap: Map<string, GenerationStatus> = new Map();
@@ -46,6 +53,12 @@ export function activate(context: vscode.ExtensionContext) {
 		updateIgnoreConfig(savedIgnoreNames, savedIgnorePatterns);
 	}
 
+	// Load prompt configuration from global state
+	const savedPromptConfig = context.globalState.get<PromptConfig>('promptConfig');
+	if (savedPromptConfig) {
+		updatePromptConfig(savedPromptConfig);
+	}
+
 	portalViewProvider = new PortalViewProvider();
 	context.subscriptions.push(portalViewProvider);
 
@@ -57,7 +70,8 @@ export function activate(context: vscode.ExtensionContext) {
 			await refreshWorkspaceFolders();
 			const availableModels = await getAvailableModels();
 			const ignoreConfig = getIgnoreConfig();
-			portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig);
+			const promptConfig = getPromptConfig();
+			portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
 		})
 	);
 
@@ -76,6 +90,14 @@ export function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('ignorePatterns', patterns);
 			await refreshWorkspaceFolders();
 			vscode.window.showInformationMessage('Ignore configuration updated');
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('AgentsMDGenerator.updatePromptConfig', async (config: PromptConfig) => {
+			updatePromptConfig(config);
+			await context.globalState.update('promptConfig', config);
+			vscode.window.showInformationMessage('Prompt configuration updated');
 		})
 	);
 
@@ -104,7 +126,8 @@ export function activate(context: vscode.ExtensionContext) {
 			await refreshWorkspaceFolders({ resetStatuses: true });
 			const availableModels = await getAvailableModels();
 			const ignoreConfig = getIgnoreConfig();
-			portalViewProvider?.showPortal(availableModels, selectedModelId, ignoreConfig);
+			const promptConfig = getPromptConfig();
+			portalViewProvider?.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
 
 			// Show progress indicator
 			await vscode.window.withProgress({

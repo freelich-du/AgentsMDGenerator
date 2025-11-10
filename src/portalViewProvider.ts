@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import { StatusSnapshot } from './statusTypes';
 
+interface PromptConfig {
+	mainTemplate: string;
+	subfolderContextTemplate: string;
+}
+
 export class PortalViewProvider implements vscode.Disposable {
 	public static readonly viewType = 'agentsPortalPanel';
 	private panel?: vscode.WebviewPanel;
@@ -16,13 +21,15 @@ export class PortalViewProvider implements vscode.Disposable {
 	private availableModels: Array<{ id: string; name: string; family: string; vendor: string }> = [];
 	private selectedModelId?: string;
 	private ignoreConfig: { names: string[]; patterns: string[] } = { names: [], patterns: [] };
+	private promptConfig: PromptConfig = { mainTemplate: '', subfolderContextTemplate: '' };
 
 	constructor() {}
 
 	public showPortal(
 		availableModels?: Array<{ id: string; name: string; family: string; vendor: string }>,
 		selectedModelId?: string,
-		ignoreConfig?: { names: string[]; patterns: string[] }
+		ignoreConfig?: { names: string[]; patterns: string[] },
+		promptConfig?: PromptConfig
 	): void {
 		if (availableModels) {
 			this.availableModels = availableModels;
@@ -33,12 +40,16 @@ export class PortalViewProvider implements vscode.Disposable {
 		if (ignoreConfig) {
 			this.ignoreConfig = ignoreConfig;
 		}
+		if (promptConfig) {
+			this.promptConfig = promptConfig;
+		}
 
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
 			this.postSnapshot();
 			this.postModels();
 			this.postIgnoreConfig();
+			this.postPromptConfig();
 			return;
 		}
 
@@ -72,6 +83,15 @@ export class PortalViewProvider implements vscode.Disposable {
 							await vscode.commands.executeCommand('AgentsMDGenerator.updateIgnoreConfig', message.names, message.patterns);
 						}
 						break;
+					case 'updatePromptConfig':
+						if (message.mainTemplate !== undefined && message.subfolderContextTemplate !== undefined) {
+							this.promptConfig = { 
+								mainTemplate: message.mainTemplate, 
+								subfolderContextTemplate: message.subfolderContextTemplate 
+							};
+							await vscode.commands.executeCommand('AgentsMDGenerator.updatePromptConfig', this.promptConfig);
+						}
+						break;
 				}
 			})
 		);
@@ -80,6 +100,7 @@ export class PortalViewProvider implements vscode.Disposable {
 		this.postSnapshot();
 		this.postModels();
 		this.postIgnoreConfig();
+		this.postPromptConfig();
 	}
 
 	public update(snapshot: StatusSnapshot) {
@@ -122,6 +143,15 @@ export class PortalViewProvider implements vscode.Disposable {
 			void this.panel.webview.postMessage({
 				type: 'ignoreConfigUpdate',
 				data: this.ignoreConfig
+			});
+		}
+	}
+
+	private postPromptConfig() {
+		if (this.panel) {
+			void this.panel.webview.postMessage({
+				type: 'promptConfigUpdate',
+				data: this.promptConfig
 			});
 		}
 	}
@@ -503,6 +533,8 @@ export class PortalViewProvider implements vscode.Disposable {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
 					const modelSelect = document.getElementById('modelSelect');
+					
+					// Ignore settings elements
 					const settingsHeader = document.getElementById('settingsHeader');
 					const settingsToggle = document.getElementById('settingsToggle');
 					const settingsContent = document.getElementById('settingsContent');
@@ -510,6 +542,17 @@ export class PortalViewProvider implements vscode.Disposable {
 					const ignorePatternsTextarea = document.getElementById('ignorePatternsTextarea');
 					const saveSettingsButton = document.getElementById('saveSettings');
 					const resetSettingsButton = document.getElementById('resetSettings');
+					
+					// Prompt settings elements
+					const promptSettingsHeader = document.getElementById('promptSettingsHeader');
+					const promptSettingsToggle = document.getElementById('promptSettingsToggle');
+					const promptSettingsContent = document.getElementById('promptSettingsContent');
+					const mainTemplateTextarea = document.getElementById('mainTemplateTextarea');
+					const subfolderTemplateTextarea = document.getElementById('subfolderTemplateTextarea');
+					const savePromptSettingsButton = document.getElementById('savePromptSettings');
+					const resetPromptSettingsButton = document.getElementById('resetPromptSettings');
+					
+					// Status elements
 					const totalCountEl = document.getElementById('totalCount');
 					const completedCountEl = document.getElementById('completedCount');
 					const inProgressCountEl = document.getElementById('inProgressCount');
@@ -519,6 +562,8 @@ export class PortalViewProvider implements vscode.Disposable {
 
 					let defaultIgnoreNames = [];
 					let defaultIgnorePatterns = [];
+					let defaultMainTemplate = '';
+					let defaultSubfolderTemplate = '';
 
 					generateButton.addEventListener('click', () => {
 						vscode.postMessage({ type: 'generate' });
@@ -537,6 +582,17 @@ export class PortalViewProvider implements vscode.Disposable {
 						} else {
 							settingsContent.classList.add('expanded');
 							settingsToggle.classList.add('expanded');
+						}
+					});
+
+					promptSettingsHeader.addEventListener('click', () => {
+						const isExpanded = promptSettingsContent.classList.contains('expanded');
+						if (isExpanded) {
+							promptSettingsContent.classList.remove('expanded');
+							promptSettingsToggle.classList.remove('expanded');
+						} else {
+							promptSettingsContent.classList.add('expanded');
+							promptSettingsToggle.classList.add('expanded');
 						}
 					});
 
@@ -559,6 +615,27 @@ export class PortalViewProvider implements vscode.Disposable {
 						ignorePatternsTextarea.value = defaultIgnorePatterns.join('\\n');
 					});
 
+					savePromptSettingsButton.addEventListener('click', () => {
+						const mainTemplate = mainTemplateTextarea.value.trim();
+						const subfolderTemplate = subfolderTemplateTextarea.value.trim();
+						
+						if (!mainTemplate) {
+							alert('Main prompt template cannot be empty');
+							return;
+						}
+						
+						vscode.postMessage({ 
+							type: 'updatePromptConfig', 
+							mainTemplate: mainTemplate,
+							subfolderContextTemplate: subfolderTemplate
+						});
+					});
+
+					resetPromptSettingsButton.addEventListener('click', () => {
+						mainTemplateTextarea.value = defaultMainTemplate;
+						subfolderTemplateTextarea.value = defaultSubfolderTemplate;
+					});
+
 					window.addEventListener('message', event => {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
@@ -567,6 +644,8 @@ export class PortalViewProvider implements vscode.Disposable {
 							renderModels(data);
 						} else if (type === 'ignoreConfigUpdate') {
 							renderIgnoreConfig(data);
+						} else if (type === 'promptConfigUpdate') {
+							renderPromptConfig(data);
 						}
 					});
 
@@ -684,6 +763,18 @@ export class PortalViewProvider implements vscode.Disposable {
 						
 						ignoreNamesTextarea.value = defaultIgnoreNames.join('\\n');
 						ignorePatternsTextarea.value = defaultIgnorePatterns.join('\\n');
+					}
+
+					function renderPromptConfig(data) {
+						if (!data) {
+							return;
+						}
+						
+						defaultMainTemplate = data.mainTemplate || '';
+						defaultSubfolderTemplate = data.subfolderContextTemplate || '';
+						
+						mainTemplateTextarea.value = defaultMainTemplate;
+						subfolderTemplateTextarea.value = defaultSubfolderTemplate;
 					}
 
 					function formatTimestamp(value) {
@@ -832,6 +923,45 @@ export class PortalViewProvider implements vscode.Disposable {
 						<div class="settings-actions">
 							<button id="resetSettings" class="btn-secondary">Reset to Defaults</button>
 							<button id="saveSettings" class="generate-btn">Save Changes</button>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="settings-section">
+				<div id="promptSettingsHeader" class="settings-header">
+					<div class="settings-header-left">
+						<span id="promptSettingsToggle" class="settings-toggle">▶</span>
+						<h3>Prompt Configuration</h3>
+					</div>
+				</div>
+				<div id="promptSettingsContent" class="settings-content">
+					<div class="settings-body">
+						<div class="settings-field">
+							<label class="settings-field-label" for="mainTemplateTextarea">Main Prompt Template</label>
+							<textarea 
+								id="mainTemplateTextarea" 
+								class="settings-textarea" 
+								placeholder="Enter the main prompt template"
+								style="min-height: 200px;"
+							></textarea>
+							<span class="settings-field-hint">Use {{SUBFOLDER_CONTEXT}} and {{FOLDER_STRUCTURE}} as placeholders</span>
+						</div>
+						
+						<div class="settings-field">
+							<label class="settings-field-label" for="subfolderTemplateTextarea">Subfolder Context Template</label>
+							<textarea 
+								id="subfolderTemplateTextarea" 
+								class="settings-textarea" 
+								placeholder="Enter the subfolder context template"
+								style="min-height: 150px;"
+							></textarea>
+							<span class="settings-field-hint">Use {{SUBFOLDER_DOCS}} as a placeholder for subfolder documentation</span>
+						</div>
+						
+						<div class="settings-actions">
+							<button id="resetPromptSettings" class="btn-secondary">Reset to Defaults</button>
+							<button id="savePromptSettings" class="generate-btn">Save Changes</button>
 						</div>
 					</div>
 				</div>

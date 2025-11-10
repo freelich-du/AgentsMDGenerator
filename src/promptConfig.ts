@@ -15,7 +15,7 @@ Folder Information:
 
 Please generate a well-structured AGENTS.md file in markdown format. Be concise but comprehensive.`;
 
-export const SUBFOLDER_CONTEXT_TEMPLATE = `
+export const DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE = `
 Sub-folder Documentation:
 The following sub-folders have been documented:
 
@@ -29,11 +29,26 @@ export interface PromptConfig {
 	subfolderContextTemplate: string;
 }
 
+// Runtime configuration
+let runtimePromptConfig: PromptConfig = {
+	mainTemplate: DEFAULT_PROMPT_TEMPLATE,
+	subfolderContextTemplate: DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE
+};
+
+/**
+ * Update the runtime prompt configuration
+ */
+export function updatePromptConfig(config: PromptConfig): void {
+	runtimePromptConfig = config;
+}
+
+/**
+ * Get current prompt configuration
+ */
 export function getPromptConfig(): PromptConfig {
-	// In the future, this could read from VS Code settings
 	return {
-		mainTemplate: DEFAULT_PROMPT_TEMPLATE,
-		subfolderContextTemplate: SUBFOLDER_CONTEXT_TEMPLATE
+		mainTemplate: runtimePromptConfig.mainTemplate,
+		subfolderContextTemplate: runtimePromptConfig.subfolderContextTemplate
 	};
 }
 
