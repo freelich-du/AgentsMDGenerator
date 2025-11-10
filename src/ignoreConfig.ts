@@ -122,20 +122,33 @@ export function getIgnoreConfig(): { names: string[]; patterns: string[] } {
 }
 
 /**
- * Checks if a folder name should be ignored based on the configured patterns.
+ * Checks if a folder should be ignored based on the configured patterns.
  * @param folderName The name of the folder to check
+ * @param relativePath The relative path from workspace root (for path-based patterns like "ResourceAnalyzers/*")
  * @returns true if the folder should be ignored, false otherwise
  */
-export function shouldIgnoreFolder(folderName: string): boolean {
-	// Check exact matches
+export function shouldIgnoreFolder(folderName: string, relativePath?: string): boolean {
+	// Check exact matches against folder name
 	if (runtimeIgnoredFolderNames.includes(folderName)) {
 		return true;
 	}
 	
-	// Check pattern matches
+	// Check pattern matches against both folder name and relative path
 	for (const pattern of runtimeIgnoredFolderPatterns) {
+		// Try matching against folder name
 		if (matchesPattern(folderName, pattern)) {
 			return true;
+		}
+		
+		// If relativePath is provided and pattern contains / or \, match against path
+		if (relativePath && (pattern.includes('/') || pattern.includes('\\'))) {
+			// Normalize path separators to forward slash for consistent matching
+			const normalizedPath = relativePath.replace(/\\/g, '/');
+			const normalizedPattern = pattern.replace(/\\/g, '/');
+			
+			if (matchesPattern(normalizedPath, normalizedPattern)) {
+				return true;
+			}
 		}
 	}
 	

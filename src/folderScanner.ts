@@ -8,7 +8,10 @@ export interface FolderNode {
 	children: FolderNode[];
 }
 
+let workspaceRoot: string | undefined;
+
 export async function buildFolderTree(rootPath: string): Promise<FolderNode> {
+	workspaceRoot = rootPath;
 	return buildFolderNode(rootPath);
 }
 
@@ -23,10 +26,15 @@ async function buildFolderNode(folderPath: string): Promise<FolderNode> {
 		const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
 
 		for (const entry of entries) {
-			if (entry.isDirectory() && !shouldIgnoreFolder(entry.name)) {
+			if (entry.isDirectory()) {
 				const childPath = path.join(folderPath, entry.name);
-				const childNode = await buildFolderNode(childPath);
-				node.children.push(childNode);
+				// Get relative path from workspace root for pattern matching
+				const relativePath = workspaceRoot ? path.relative(workspaceRoot, childPath) : entry.name;
+				
+				if (!shouldIgnoreFolder(entry.name, relativePath)) {
+					const childNode = await buildFolderNode(childPath);
+					node.children.push(childNode);
+				}
 			}
 		}
 	} catch (error) {
