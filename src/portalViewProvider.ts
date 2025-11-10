@@ -139,19 +139,28 @@ export class PortalViewProvider implements vscode.Disposable {
 					display: flex;
 					align-items: flex-start;
 					justify-content: space-between;
-					gap: 12px;
+					gap: 16px;
 				}
 				.portal__header-left {
 					flex: 1;
 					display: flex;
 					flex-direction: column;
+					gap: 8px;
+				}
+				.portal__header-top {
+					display: flex;
+					align-items: center;
+					gap: 12px;
+				}
+				.portal__header-title {
+					display: flex;
+					flex-direction: column;
 					gap: 2px;
+					flex: 1;
 				}
 				.portal__header-right {
 					display: flex;
-					flex-direction: column;
-					gap: 8px;
-					align-items: flex-end;
+					align-items: flex-start;
 				}
 				.portal__header h1 {
 					margin: 0;
@@ -159,7 +168,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					font-weight: 600;
 				}
 				.portal__header p {
-					margin: 2px 0 0;
+					margin: 0;
 					color: var(--vscode-descriptionForeground);
 					font-size: 12px;
 				}
@@ -167,7 +176,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					display: flex;
 					flex-direction: column;
 					gap: 4px;
-					min-width: 200px;
+					min-width: 240px;
 				}
 				.model-selector-label {
 					font-size: 11px;
@@ -345,14 +354,17 @@ export class PortalViewProvider implements vscode.Disposable {
 					font-size: 12px;
 					color: var(--vscode-descriptionForeground);
 				}
-				@media (max-width: 520px) {
+				@media (max-width: 768px) {
 					.portal__header {
+						flex-direction: column;
+						align-items: stretch;
+					}
+					.portal__header-top {
 						flex-direction: column;
 						align-items: flex-start;
 					}
 					.portal__header-right {
 						width: 100%;
-						align-items: stretch;
 					}
 					.generate-btn {
 						width: 100%;
@@ -577,16 +589,20 @@ export class PortalViewProvider implements vscode.Disposable {
 		<div class="portal">
 			<div class="portal__header">
 				<div class="portal__header-left">
-					<h1>AGENTS.md Portal</h1>
-					<p>AI-powered documentation overview</p>
+					<div class="portal__header-top">
+						<div class="portal__header-title">
+							<h1>AGENTS.md Portal</h1>
+							<p>AI-powered documentation overview</p>
+						</div>
+						<div class="model-selector">
+							<label class="model-selector-label" for="modelSelect">LLM Model</label>
+							<select id="modelSelect" class="model-select">
+								<option value="">Loading models...</option>
+							</select>
+						</div>
+					</div>
 				</div>
 				<div class="portal__header-right">
-					<div class="model-selector">
-						<label class="model-selector-label" for="modelSelect">LLM Model</label>
-						<select id="modelSelect" class="model-select">
-							<option value="">Loading models...</option>
-						</select>
-					</div>
 					<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
 				</div>
 			</div>
