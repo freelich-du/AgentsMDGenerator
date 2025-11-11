@@ -46,10 +46,13 @@ export class PortalViewProvider implements vscode.Disposable {
 
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
-			this.postSnapshot();
-			this.postModels();
-			this.postIgnoreConfig();
-			this.postPromptConfig();
+			// Post updates only if we have data
+			if (availableModels || selectedModelId !== undefined || ignoreConfig || promptConfig) {
+				this.postSnapshot();
+				this.postModels();
+				this.postIgnoreConfig();
+				this.postPromptConfig();
+			}
 			return;
 		}
 
@@ -92,15 +95,19 @@ export class PortalViewProvider implements vscode.Disposable {
 							await vscode.commands.executeCommand('AgentsMDGenerator.updatePromptConfig', this.promptConfig);
 						}
 						break;
+					case 'ready':
+						// WebView is ready, send initial data
+						this.postSnapshot();
+						this.postModels();
+						this.postIgnoreConfig();
+						this.postPromptConfig();
+						break;
 				}
 			})
 		);
 
 		this.panel.onDidDispose(() => this.clearPanel());
-		this.postSnapshot();
-		this.postModels();
-		this.postIgnoreConfig();
-		this.postPromptConfig();
+		// Don't post data here - wait for 'ready' message from webview
 	}
 
 	public update(snapshot: StatusSnapshot) {
@@ -409,6 +416,40 @@ export class PortalViewProvider implements vscode.Disposable {
 					font-size: 12px;
 					color: var(--vscode-descriptionForeground);
 				}
+				.loading-overlay {
+					position: fixed;
+					top: 0;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					background: var(--vscode-sideBar-background);
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					gap: 16px;
+					z-index: 1000;
+					transition: opacity 0.3s ease;
+				}
+				.loading-overlay.hidden {
+					opacity: 0;
+					pointer-events: none;
+				}
+				.spinner {
+					width: 48px;
+					height: 48px;
+					border: 4px solid var(--vscode-editorGroup-border);
+					border-top-color: var(--vscode-button-background);
+					border-radius: 50%;
+					animation: spin 0.8s linear infinite;
+				}
+				@keyframes spin {
+					to { transform: rotate(360deg); }
+				}
+				.loading-text {
+					font-size: 14px;
+					color: var(--vscode-descriptionForeground);
+				}
 				.settings-section {
 					background: var(--vscode-editorWidget-background);
 					border: 1px solid var(--vscode-editorGroup-border);
@@ -540,6 +581,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
 					const modelSelect = document.getElementById('modelSelect');
+					const loadingOverlay = document.getElementById('loadingOverlay');
 					
 					// Ignore settings elements
 					const settingsHeader = document.getElementById('settingsHeader');
@@ -571,6 +613,12 @@ export class PortalViewProvider implements vscode.Disposable {
 					let defaultIgnorePatterns = [];
 					let defaultMainTemplate = '';
 					let defaultSubfolderTemplate = '';
+					let dataLoaded = false;
+
+					// Notify extension that webview is ready
+					setTimeout(() => {
+						vscode.postMessage({ type: 'ready' });
+					}, 0);
 
 					generateButton.addEventListener('click', () => {
 						vscode.postMessage({ type: 'generate' });
@@ -647,14 +695,27 @@ export class PortalViewProvider implements vscode.Disposable {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
 							renderStatus(data);
+							hideLoadingIfReady();
 						} else if (type === 'modelsUpdate') {
 							renderModels(data);
+							hideLoadingIfReady();
 						} else if (type === 'ignoreConfigUpdate') {
 							renderIgnoreConfig(data);
+							hideLoadingIfReady();
 						} else if (type === 'promptConfigUpdate') {
 							renderPromptConfig(data);
+							hideLoadingIfReady();
 						}
 					});
+
+					function hideLoadingIfReady() {
+						if (!dataLoaded) {
+							dataLoaded = true;
+							setTimeout(() => {
+								loadingOverlay.classList.add('hidden');
+							}, 100);
+						}
+					}
 
 					function renderStatus(snapshot) {
 						totalCountEl.textContent = String(snapshot?.total ?? 0);
@@ -858,6 +919,10 @@ export class PortalViewProvider implements vscode.Disposable {
 	${styles}
 </head>
 	<body>
+		<div id="loadingOverlay" class="loading-overlay">
+			<div class="spinner"></div>
+			<div class="loading-text">Loading portal data...</div>
+		</div>
 		<div class="portal">
 			<div class="portal__header">
 				<div class="portal__header-left">

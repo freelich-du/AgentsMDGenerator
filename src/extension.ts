@@ -67,11 +67,24 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!portalViewProvider) {
 				return;
 			}
-			await refreshWorkspaceFolders();
-			const availableModels = await getAvailableModels();
-			const ignoreConfig = getIgnoreConfig();
-			const promptConfig = getPromptConfig();
-			portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
+			
+			// Open portal immediately without waiting for data
+			portalViewProvider.showPortal();
+			
+			// Load data asynchronously in the background
+			void (async () => {
+				try {
+					await refreshWorkspaceFolders();
+					const availableModels = await getAvailableModels();
+					const ignoreConfig = getIgnoreConfig();
+					const promptConfig = getPromptConfig();
+					
+					// Update portal with loaded data
+					portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
+				} catch (error) {
+					console.error('Error loading portal data:', error);
+				}
+			})();
 		})
 	);
 
