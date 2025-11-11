@@ -25,14 +25,19 @@ List the main files/modules with their specific roles (based on actual code anal
 
 NOTE: Include files from sub-folders that don't have AGENTS.md yet (format as "subfolder/filename.ext")
 
-## Sub-folders
+## Sub-folders (CONDITIONAL - see instructions below)
 {{SUBFOLDER_CONTEXT}}
 
-## For More Details
-IMPORTANT: Only list sub-folders that actually have AGENTS.md files (these are provided in the Sub-folders section above).
-Format: "- For [topic covered in that subfolder]: See [subfolder-name]/AGENTS.md"
+## For More Details (CONDITIONAL - see instructions below)
+This section is for providing links to sub-folder documentation. Instructions will be provided above.
 
-If no sub-folders have AGENTS.md files yet, write: "No sub-folder documentation available yet."
+## Related Folders/Files (CONDITIONAL - only if there are external dependencies)
+ONLY include this section if there are meaningful external dependencies or relationships with other parts of the project.
+List critical dependencies discovered from import/require statements:
+- **Path/to/folder**: Brief description of the relationship (imports from, exports to, depends on, etc.)
+- **Path/to/file**: Why this external file/folder is important to this folder
+
+If there are no significant external dependencies, SKIP this entire section (do not include the heading).
 
 Folder Information:
 {{FOLDER_STRUCTURE}}
@@ -40,6 +45,7 @@ Folder Information:
 IMPORTANT: 
 - Analyze actual code content, especially function/class definitions and imports
 - Include 2-3 key functions/classes per file in Key Components
+- Identify external dependencies from import/require statements in the code
 - Document files from sub-folders WITHOUT AGENTS.md in the Key Components section
 - ONLY reference sub-folders that are listed in the Sub-folders section above
 - Be thorough and comprehensive - if there are many files or complex/critical files, provide more detailed documentation as needed
@@ -59,11 +65,16 @@ After generating the above sections, ALWAYS append this maintenance section at t
 This documentation helps future developers (and AI agents) understand the codebase quickly.`;
 
 export const DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE = `
-**Documented sub-folders with AGENTS.md files:**
+The following sub-folders have AGENTS.md documentation:
 
 {{SUBFOLDER_DOCS}}
 
-REMINDER: In the "For More Details" section, ONLY reference the sub-folders listed above. These are the only ones with AGENTS.md files.`;
+INSTRUCTIONS for Sub-folders sections:
+1. Replace "## Sub-folders (CONDITIONAL - see instructions below)" with "## Sub-folders"
+2. List and briefly describe the documented sub-folders above
+3. Replace "## For More Details (CONDITIONAL - see instructions below)" with "## For More Details"
+4. In the "For More Details" section, provide links to each subfolder's AGENTS.md
+   Format: "- For [topic covered in that subfolder]: See [subfolder-name]/AGENTS.md"`;
 
 export interface PromptConfig {
 	mainTemplate: string;
@@ -126,7 +137,13 @@ export function buildPrompt(
 		
 		prompt = prompt.replace('{{SUBFOLDER_CONTEXT}}', subfolderContext);
 	} else {
-		const noSubfoldersMessage = 'No sub-folders have AGENTS.md files yet.\n\nIn the "For More Details" section, write: "No sub-folder documentation available yet."';
+		// No sub-folders with AGENTS.md - instruct to skip those sections
+		const noSubfoldersMessage = `No sub-folders have AGENTS.md files.
+
+INSTRUCTIONS: 
+- COMPLETELY REMOVE the "## Sub-folders (CONDITIONAL - see instructions below)" section (heading and placeholder text)
+- COMPLETELY REMOVE the "## For More Details (CONDITIONAL - see instructions below)" section (heading and placeholder text)
+- Continue directly to the next section (Related Folders/Files)`;
 		prompt = prompt.replace('{{SUBFOLDER_CONTEXT}}', noSubfoldersMessage);
 	}
 
