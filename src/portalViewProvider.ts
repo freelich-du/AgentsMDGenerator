@@ -102,6 +102,22 @@ export class PortalViewProvider implements vscode.Disposable {
 						this.postIgnoreConfig();
 						this.postPromptConfig();
 						break;
+					case 'openAgentsFile':
+						if (message.path) {
+							const agentsFilePath = vscode.Uri.file(message.path + '/AGENTS.md');
+							try {
+								const doc = await vscode.workspace.openTextDocument(agentsFilePath);
+								await vscode.window.showTextDocument(doc, { preview: false });
+							} catch (error) {
+								vscode.window.showErrorMessage(`Failed to open AGENTS.md: ${error}`);
+							}
+						}
+						break;
+					case 'generateSingleFolder':
+						if (message.path) {
+							await vscode.commands.executeCommand('AgentsMDGenerator.generateSingleFolder', message.path);
+						}
+						break;
 				}
 			})
 		);
@@ -411,6 +427,27 @@ export class PortalViewProvider implements vscode.Disposable {
 					height: 8px;
 					border-radius: 50%;
 					background: currentColor;
+				}
+				.row-action-btn {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					width: 28px;
+					height: 28px;
+					background: rgba(33, 150, 243, 0.15);
+					color: #2196f3;
+					border: none;
+					border-radius: 4px;
+					cursor: pointer;
+					transition: background 0.2s ease;
+				}
+				.row-action-btn:hover {
+					background: rgba(33, 150, 243, 0.25);
+				}
+				.row-action-btn svg {
+					width: 14px;
+					height: 14px;
+					fill: currentColor;
 				}
 				.status-footer {
 					font-size: 12px;
@@ -730,7 +767,7 @@ export class PortalViewProvider implements vscode.Disposable {
 							const emptyRow = document.createElement('tr');
 							emptyRow.className = 'empty-row';
 							const cell = document.createElement('td');
-							cell.colSpan = 5;
+							cell.colSpan = 6;
 							cell.textContent = 'Workspace has no folders to display.';
 							emptyRow.appendChild(cell);
 							tableBody.appendChild(emptyRow);
@@ -749,6 +786,27 @@ export class PortalViewProvider implements vscode.Disposable {
 							const folderName = document.createElement('span');
 							folderName.className = 'folder-label__name';
 							folderName.textContent = item.name || item.relativePath || item.path;
+							
+							// Make folder name clickable if AGENTS.md exists
+							if (item.hasAgentsFile) {
+								folderName.style.cursor = 'pointer';
+								folderName.style.color = 'var(--vscode-textLink-foreground)';
+								folderName.style.textDecoration = 'none';
+								folderName.addEventListener('mouseenter', () => {
+									folderName.style.textDecoration = 'underline';
+								});
+								folderName.addEventListener('mouseleave', () => {
+									folderName.style.textDecoration = 'none';
+								});
+								folderName.addEventListener('click', (e) => {
+									e.stopPropagation();
+									vscode.postMessage({ 
+										type: 'openAgentsFile', 
+										path: item.path 
+									});
+								});
+							}
+							
 							folderLabel.appendChild(folderName);
 
 							if (item.depth > 0 && item.relativePath && item.relativePath !== item.name) {
@@ -776,6 +834,21 @@ export class PortalViewProvider implements vscode.Disposable {
 							const docStateCell = document.createElement('td');
 							docStateCell.appendChild(createDocTag(item));
 							row.appendChild(docStateCell);
+
+							const actionsCell = document.createElement('td');
+							const generateBtn = document.createElement('button');
+							generateBtn.className = 'row-action-btn';
+							generateBtn.title = 'Generate AGENTS.md for this folder';
+							generateBtn.innerHTML = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 3L13 8l-8.5 5V3z"/></svg>';
+							generateBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								vscode.postMessage({ 
+									type: 'generateSingleFolder', 
+									path: item.path 
+								});
+							});
+							actionsCell.appendChild(generateBtn);
+							row.appendChild(actionsCell);
 
 							tableBody.appendChild(row);
 						});
@@ -1053,11 +1126,12 @@ export class PortalViewProvider implements vscode.Disposable {
 								<th>Docs Updated</th>
 								<th>Content Updated</th>
 								<th>Documentation</th>
+								<th style="width: 60px;">Actions</th>
 							</tr>
 						</thead>
 						<tbody id="folderTableBody">
 							<tr class="empty-row">
-								<td colspan="5">Workspace has no folders to display.</td>
+								<td colspan="6">Workspace has no folders to display.</td>
 							</tr>
 						</tbody>
 					</table>

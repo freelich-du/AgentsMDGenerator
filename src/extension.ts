@@ -193,6 +193,49 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(generateCommand);
+
+	// Register the command to generate AGENTS.md for a single folder
+	const generateSingleFolderCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateSingleFolder', async (folderPath: string) => {
+		try {
+			// Find the folder node for this path
+			const folderNode = discoveredFolders.find(f => f.path === folderPath);
+			if (!folderNode) {
+				vscode.window.showErrorMessage('Folder not found in workspace.');
+				return;
+			}
+
+			// Show progress indicator
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: `Generating AGENTS.md for ${folderNode.name}`,
+				cancellable: false
+			}, async (progress) => {
+				progress.report({ message: 'Processing...' });
+
+				folderStatusMap.set(folderNode.path, GenerationStatus.InProgress);
+				await updatePortalStatus();
+
+				const success = await generateAgentsMdForFolder(folderNode);
+
+				folderStatusMap.set(
+					folderNode.path,
+					success ? GenerationStatus.Completed : GenerationStatus.Failed
+				);
+				await updatePortalStatus();
+
+				if (success) {
+					vscode.window.showInformationMessage(`Successfully generated AGENTS.md for ${folderNode.name}!`);
+				} else {
+					vscode.window.showWarningMessage(`Failed to generate AGENTS.md for ${folderNode.name}.`);
+				}
+			});
+
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error generating AGENTS.md: ${error}`);
+		}
+	});
+
+	context.subscriptions.push(generateSingleFolderCommand);
 }
 
 /**
