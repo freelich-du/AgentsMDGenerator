@@ -28,13 +28,6 @@ NOTE: Include files from sub-folders that don't have AGENTS.md yet (format as "s
 ## Sub-folders
 {{SUBFOLDER_CONTEXT}}
 
-## Related Folders/Files
-List critical dependencies and relationships with other parts of the project:
-- **Path/to/folder**: Brief description of the relationship (imports from, exports to, depends on, etc.)
-- **Path/to/file**: Why this external file/folder is important to this folder
-
-If no significant external dependencies, write: "Self-contained folder with no major external dependencies."
-
 ## For More Details
 IMPORTANT: Only list sub-folders that actually have AGENTS.md files (these are provided in the Sub-folders section above).
 Format: "- For [topic covered in that subfolder]: See [subfolder-name]/AGENTS.md"
@@ -47,10 +40,23 @@ Folder Information:
 IMPORTANT: 
 - Analyze actual code content, especially function/class definitions and imports
 - Include 2-3 key functions/classes per file in Key Components
-- Identify external dependencies from import/require statements in the code
 - Document files from sub-folders WITHOUT AGENTS.md in the Key Components section
 - ONLY reference sub-folders that are listed in the Sub-folders section above
-- Keep total document under 350 words`;
+- Be thorough and comprehensive - if there are many files or complex/critical files, provide more detailed documentation as needed
+- Quality and completeness are more important than brevity
+
+After generating the above sections, ALWAYS append this maintenance section at the end:
+
+---
+
+## 📝 Maintenance Instructions
+**When making changes to this folder, please update this AGENTS.md file:**
+- Add new files to the Key Components section
+- Update descriptions if file responsibilities change significantly
+- Document new sub-folders when they are added
+- Keep the overview current with architectural changes
+
+This documentation helps future developers (and AI agents) understand the codebase quickly.`;
 
 export const DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE = `
 **Documented sub-folders with AGENTS.md files:**
