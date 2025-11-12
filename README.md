@@ -1,17 +1,6 @@
 # AGENTS.md Generator
 
-A VS Code extension that automatically generates AGENTS.md documentation files for all folders in your project using GitHub Copilot Chat. Features intelligent **leaf-to-root** traversal and a **portal dashboard** to track generation status.
-
-## Features
-
-- **🪟 Portal Dashboard**: Dedicated sidebar view with a "Generate" button and live status cards
-- **📊 Real-time Status Tracking**: Watch generation progress with live summaries and folder list
-- **🍃 Leaf-to-Root Processing**: Processes deepest folders first, so parent folders can reference child documentation
-- **🧠 Contextual Documentation**: Parent folders include summaries of sub-folder AGENTS.md files
-- **⚙️ Configurable Prompts**: Easy-to-customize prompt templates in `promptConfig.ts`
-- **🎯 Smart Filtering**: Automatically excludes common build and dependency folders (node_modules, .git, dist, etc.)
-- **🔄 Fallback Support**: Creates basic documentation if Copilot is unavailable
-- **✨ Progress Tracking**: Visual progress indicator shows generation status
+A VS Code extension that automatically generates AGENTS.md documentation files for all folders in your project using GitHub Copilot Chat.
 
 ## Requirements
 
@@ -19,13 +8,18 @@ A VS Code extension that automatically generates AGENTS.md documentation files f
 - **GitHub Copilot** extension must be installed and active
 - Active GitHub Copilot subscription
 
-## Usage
+## Quick start
 
 1. Open a workspace/folder in VS Code
-2. Click the **"AGENTS.md"** icon in the activity bar (left edge) to open the portal
-3. Press the **"Generate AGENTS.md Files"** button in the portal view
-4. Watch the dashboard update with live metrics and a folder status list
-5. Re-run the button any time to regenerate documentation
+2. **Open the AGENTS.md Portal** (one of the following):
+   - Use Command Palette: `Ctrl+Shift+P` → "AGENTS.md: Open AGENTS.md Portal"
+   - **One-click**: [Open Portal](command:AgentsMDGenerator.openPortal)
+3. Configure settings if needed (ignore patterns, prompts, LLM model)
+4. Click **"Generate AGENTS.md Files"** button
+5. Monitor real-time progress with live metrics and folder status updates
+6. Re-run generation any time to update documentation
+
+> 💡 **Tip**: The portal provides configurable ignore patterns (to exclude folders like `node_modules`) and customizable prompt templates for AI-generated documentation.
 
 ## How It Works
 
@@ -46,68 +40,30 @@ When generating AGENTS.md for a folder:
 - **Sub-folder AGENTS.md files** are included as context
 - Copilot generates a higher-level overview that summarizes both
 
-### Customizable Prompts
-
-Edit `src/promptConfig.ts` to customize the prompt template:
-
-```typescript
-export const DEFAULT_PROMPT_TEMPLATE = `...your template...`;
-```
-
-The template supports variables:
-- `{{FOLDER_STRUCTURE}}` - Folder contents and file previews
-- `{{SUBFOLDER_CONTEXT}}` - AGENTS.md content from sub-folders
-- `{{SUBFOLDER_DOCS}}` - Individual sub-folder documentation
-
 ## What Gets Generated
 
 Each AGENTS.md file includes:
-1. **Overview**: Brief description of the folder/module
-2. **Purpose**: Main responsibilities of this folder
-3. **Key Files**: Important files and their roles
-4. **Sub-folders**: Summary of documented sub-folders (for parent folders)
-5. **Dependencies**: Relationships with other parts of the project
-6. **Usage**: Instructions or examples if applicable
 
-## Extension Settings
+1. **Overview**: Purpose, responsibilities, architecture, and how it fits in the project (3-5 sentences)
+2. **Key Components**: Main files with their roles, key functions/classes, and architectural fit
+3. **Sub-folders**: Summary of documented sub-folders
+4. **Related Folders/Files**: Dependencies and relationships with other parts of the project
+5. **For More Details**: Links to sub-folder documentation
 
-This extension currently has no configurable settings. Customize prompts by editing `src/promptConfig.ts`.
-
-## Known Issues
-
-- Large projects with many folders may take some time to process
-- Token limits may truncate analysis of folders with very large files
-- Requires active GitHub Copilot subscription
-
-## Release Notes
-
-### 0.0.2
-
-Major feature update:
-- 🪟 **Portal Dashboard**: Replaced tree view with a webview portal and one-click generation button
-- 🍃 **Leaf-to-Root Processing**: Folders now processed from deepest to shallowest
-- 📚 **Contextual Documentation**: Parent folders include summaries of sub-folder docs
-- ⚙️ **Configurable Prompts**: Easy-to-edit prompt templates in `promptConfig.ts`
-- 📊 **Live Metrics**: Portal cards show totals for completed, in-progress, and failed folders
-- � **Status List**: Scrollable list of folder statuses within the portal
-
-### 0.0.1
-
-Initial release:
-- Recursive folder scanning
-- GitHub Copilot Chat integration
-- AGENTS.md generation for all folders
-- Progress tracking and error handling
+The AI analyzes actual code content to generate comprehensive, context-aware documentation.
 
 ## Development
 
-To test this extension locally:
+To develop and test this extension locally:
 
 1. Clone the repository
 2. Run `npm install` to install dependencies
-3. Press `F5` to open a new VS Code window with the extension loaded
-4. Open a folder/workspace in the extension development host
-5. Run the "Generate AGENTS.md files for all folders" command
+3. Press `F5` to launch the Extension Development Host (new VS Code window)
+4. In the Extension Development Host:
+   - Open a folder/workspace to test with
+   - Run command: "Open AGENTS.md Portal"
+5. Test generation, configuration changes, and UI interactions
+6. Check the Debug Console in the main VS Code window for logs
 
 ## Building
 

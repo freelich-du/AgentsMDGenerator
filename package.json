@@ -4,6 +4,10 @@
   "description": "Generate AGENTS.md files for folders using GitHub Copilot Chat",
   "version": "0.0.1",
   "publisher": "local-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freelich-du/AgentsMDGenerator"
+  },
   "engines": {
     "vscode": "^1.105.0"
   },
