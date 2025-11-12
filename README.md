@@ -21,20 +21,11 @@ A VS Code extension that automatically generates AGENTS.md documentation files f
 
 ## Usage
 
-### Using the Portal (Recommended)
-
 1. Open a workspace/folder in VS Code
 2. Click the **"AGENTS.md"** icon in the activity bar (left edge) to open the portal
 3. Press the **"Generate AGENTS.md Files"** button in the portal view
 4. Watch the dashboard update with live metrics and a folder status list
 5. Re-run the button any time to regenerate documentation
-
-### Using Command Palette
-
-1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac)
-2. Type: **"Generate AGENTS.md files for all folders"**
-3. Select the command
-4. Wait for processing to complete
 
 ## How It Works
 
