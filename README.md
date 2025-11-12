@@ -23,13 +23,6 @@ A VS Code extension that automatically generates AGENTS.md documentation files f
 
 > 💡 **Tip**: The portal provides configurable ignore patterns (to exclude folders like `node_modules`) and customizable prompt templates for AI-generated documentation.
 
-### Using Command Palette
-
-1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac)
-2. Type: **"Generate AGENTS.md files for all folders"**
-3. Select the command
-4. Wait for processing to complete
-
 ## How It Works
 
 ### Leaf-to-Root Processing
