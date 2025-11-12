@@ -1,83 +1,35 @@
-# AGENTS.md Generator Extension
+# AGENTS.md Generator
 
 ## Overview
-This folder contains a complete VS Code extension that generates AGENTS.md documentation files for all folders in a workspace using GitHub Copilot Chat integration.
 
-## Purpose
-The extension provides automated documentation generation by:
-- Recursively scanning workspace folders
-- Analyzing folder contents and structure
-- Using GitHub Copilot's Language Model API to generate contextual documentation
-- Creating AGENTS.md files in each folder with AI-generated insights
+This VS Code extension automates the generation of AGENTS.md documentation files for all folders in a workspace using GitHub Copilot Chat. It features a webview-based portal interface for configuration and monitoring, supports customizable ignore patterns and prompt templates, and processes folders in a leaf-to-root order to ensure parent folders can reference child documentation. The extension leverages the VS Code Language Model API to provide intelligent, context-aware documentation generation with real-time progress tracking.
 
-## Key Files
+## Key Components
 
-### `src/extension.ts`
-Main extension implementation containing:
-- **activate()**: Registers the portal webview and generation command
-- **buildStatusSnapshot()**: Compiles folder status metrics for the portal dashboard
-- **generateAgentsMdForFolder()**: Integrates with Copilot Chat API to generate documentation
-- **updatePortalStatus()**: Streams progress updates to the portal UI
+- **extension.ts**: Main extension entry point that handles activation, command registration, and orchestrates the documentation generation process. Key functions include `activate()` for initialization, `generateAgentsMdForFolder()` for AI-powered content generation using GitHub Copilot, `getFolderStructure()` for analyzing code files (up to 10 files with 2500 chars each), and `refreshWorkspaceFolders()` for workspace state management. Manages global state persistence for user settings.
 
-### `src/folderScanner.ts`
-Builds a filtered folder tree and provides leaf-to-root ordering for documentation generation.
+- **portalViewProvider.ts**: Webview panel provider that renders the interactive portal UI with HTML/CSS/JavaScript. Implements `PortalViewProvider` class with `showPortal()` to display the interface and `getHtml()` to generate the complete webview content. Handles bidirectional message passing between webview and extension for actions like model selection, ignore configuration updates, and generation triggering. Features expandable settings sections and real-time status updates.
 
-### `src/portalViewProvider.ts`
-Creates the portal dashboard webview with a generate button, live metrics, and folder status list.
+- **folderScanner.ts**: Recursive folder tree builder that creates a hierarchical structure of workspace folders. Key functions: `buildFolderTree()` initiates scanning from workspace root, `buildFolderNode()` recursively traverses directories while respecting ignore patterns, and `flattenFoldersByDepth()` sorts folders by depth (deepest first) for leaf-to-root processing. Integrates with ignoreConfig for pattern-based filtering.
 
-### `src/statusTypes.ts`
-Shared status enums and interfaces for keeping the portal and generator in sync.
+- **ignoreConfig.ts**: Manages folder exclusion logic with support for exact name matching, wildcard patterns, and path-based patterns. Exports `DEFAULT_IGNORED_FOLDER_NAMES` (40+ common folders like node_modules, .git, dist) and `DEFAULT_IGNORED_FOLDER_PATTERNS` for wildcard matching. Key functions: `shouldIgnoreFolder()` checks both folder names and relative paths against patterns, `matchesPattern()` implements wildcard regex conversion, and `updateIgnoreConfig()`/`getIgnoreConfig()` for runtime configuration management.
 
-### `package.json`
-Extension manifest defining:
-- Extension metadata (name, version, description)
-- Portal view container contribution: `agentsPortalView`
-- Command contributions: `AgentsMDGenerator.generateAgentsMd`
-- Dependencies and build scripts
+- **promptConfig.ts**: Defines and manages AI prompt templates for documentation generation. Exports `DEFAULT_PROMPT_TEMPLATE` with comprehensive instructions for 5 sections (Overview, Key Components, Sub-folders, Related Folders/Files, For More Details) and `DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE` for child folder context. `buildPrompt()` function replaces placeholders with actual folder structure and subfolder documentation, ensuring the AI receives proper context for analysis.
 
-### `tsconfig.json`
-TypeScript compiler configuration for VS Code extension development
+- **statusTypes.ts**: TypeScript type definitions for tracking generation status. Defines `GenerationStatus` enum (NotStarted, InProgress, Completed, Failed), `StatusItem` interface for individual folder tracking, and `StatusSnapshot` interface for aggregated portal state with metrics and timestamp.
 
-### `esbuild.js`
-Build configuration for bundling the extension using esbuild
+- **esbuild.js**: Build configuration script that bundles the TypeScript extension into a single JavaScript file for distribution. Configures esbuild with production minification, source map generation, and watch mode support. Includes custom problem matcher plugin for development workflow integration.
 
-### `.vscode/`
-VS Code workspace settings including:
-- `launch.json`: Debug configuration for F5 extension testing
-- `tasks.json`: Build tasks for compilation
-- `settings.json`: Editor settings
+## Related Folders/Files
 
-## Dependencies
-- **vscode**: VS Code extensibility API (^1.105.0)
-- **TypeScript**: Type-safe development
-- **esbuild**: Fast bundling and compilation
-- **GitHub Copilot**: Required for AI-powered documentation generation
+- **package.json**: Extension manifest defining commands (`AgentsMDGenerator.openPortal`), scripts (compile, watch, package, vsce:package), and dependencies. Specifies VS Code engine requirement (^1.105.0) and repository URL.
+- **tsconfig.json**: TypeScript compiler configuration for ES2022 target with strict type checking and Node.js module resolution.
+- **eslint.config.mjs**: ESLint configuration for code quality enforcement across the TypeScript codebase.
+- **.vscode/**: VS Code workspace settings and launch configurations for F5 debugging of extension development.
+- **dist/**: Output directory containing bundled extension.js from esbuild compilation.
 
-## Usage Flow
-1. User opens the AGENTS.md portal and clicks **Generate AGENTS.md Files** (or runs the command)
-2. Extension validates workspace is open and builds the folder tree
-3. Portal dashboard initializes counts and folder statuses
-4. For each folder (leaf-to-root order):
-   - Reads directory structure and file contents
-   - Uses sub-folder AGENTS.md files for context when available
-   - Calls Copilot Chat API with assembled prompt
-   - Streams response and writes AGENTS.md
-   - Updates portal metrics and status list in real time
-5. Progress notifications keep user informed
-6. Error handling provides fallback documentation
+## For More Details
 
-## VS Code APIs Used
-- `vscode.commands.registerCommand`: Command registration
-- `vscode.window.withProgress`: Progress UI
-- `vscode.lm.selectChatModels`: Copilot model selection
-- `vscode.LanguageModelChatMessage`: Chat message construction
-- `model.sendRequest`: Copilot API interaction
-- `vscode.workspace.workspaceFolders`: Workspace access
-
-## Testing
-Press **F5** to launch Extension Development Host and test the extension in a new VS Code window.
-
-## Build Commands
-- `npm run compile`: Type-check, lint, and build
-- `npm run watch`: Watch mode for development
-- `npm run package`: Production build
+- For user documentation and setup instructions: See README.md
+- For build and packaging process: See package.json scripts section
+- No sub-folder documentation available yet.
