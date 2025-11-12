@@ -871,12 +871,6 @@ export class PortalViewProvider implements vscode.Disposable {
 						
 						modelSelect.disabled = false;
 						
-						// Add default option
-						const defaultOption = document.createElement('option');
-						defaultOption.value = '';
-						defaultOption.textContent = 'Auto (gpt-4o)';
-						modelSelect.appendChild(defaultOption);
-						
 						// Add available models
 						models.forEach(model => {
 							const option = document.createElement('option');
@@ -887,11 +881,6 @@ export class PortalViewProvider implements vscode.Disposable {
 							}
 							modelSelect.appendChild(option);
 						});
-						
-						// Select the default if no model is selected
-						if (!selectedId) {
-							defaultOption.selected = true;
-						}
 					}
 
 					function renderIgnoreConfig(data) {

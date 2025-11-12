@@ -79,6 +79,16 @@ export function activate(context: vscode.ExtensionContext) {
 					const ignoreConfig = getIgnoreConfig();
 					const promptConfig = getPromptConfig();
 					
+					// Set default model if none selected
+					if (!selectedModelId && availableModels.length > 0) {
+						const defaultModelId = getDefaultModelId(availableModels);
+						if (defaultModelId) {
+							selectedModelId = defaultModelId;
+							await context.globalState.update('selectedModelId', defaultModelId);
+							console.log('Auto-selected default model:', defaultModelId);
+						}
+					}
+					
 					// Update portal with loaded data
 					portalViewProvider.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
 				} catch (error) {
@@ -246,16 +256,52 @@ async function getAvailableModels(): Promise<Array<{ id: string; name: string; f
 		const allModels = await vscode.lm.selectChatModels();
 		
 		// Map models to a simplified format
-		return allModels.map(model => ({
+		const models = allModels.map(model => ({
 			id: model.id,
 			name: model.name,
 			family: model.family,
 			vendor: model.vendor
 		}));
+		
+		// Log available models for debugging
+		console.log('Available LLM models:', JSON.stringify(models, null, 2));
+		
+		return models;
 	} catch (error) {
 		console.error('Error fetching available models:', error);
 		return [];
 	}
+}
+
+/**
+ * Get default model ID based on priority: Claude Sonnet 4.5 > GPT-5-Codex > auto
+ */
+function getDefaultModelId(models: Array<{ id: string; name: string; family: string; vendor: string }>): string | undefined {
+	// Priority 1: Claude Sonnet 4.5
+	const claudeSonnet = models.find(m => m.id === 'claude-sonnet-4.5');
+	
+	if (claudeSonnet) {
+		console.log('Using default model: Claude Sonnet 4.5 -', claudeSonnet.id);
+		return claudeSonnet.id;
+	}
+	
+	// Priority 2: GPT-5-Codex
+	const gpt5Codex = models.find(m => m.id === 'gpt-5-codex');
+	
+	if (gpt5Codex) {
+		console.log('Using default model: GPT-5-Codex -', gpt5Codex.id);
+		return gpt5Codex.id;
+	}
+	
+	// Priority 3: Auto
+	const autoModel = models.find(m => m.id === 'auto');
+	if (autoModel) {
+		console.log('Using default model: Auto -', autoModel.id);
+		return autoModel.id;
+	}
+	
+	console.log('No preferred model found, using undefined (will fallback to gpt-4o)');
+	return undefined;
 }
 
 /**
@@ -583,16 +629,11 @@ async function generateAgentsMdForFolder(folderNode: FolderNode): Promise<boolea
 			const models = await vscode.lm.selectChatModels({ id: selectedModelId });
 			if (models.length > 0) {
 				model = models[0];
+			} else {
+				throw new Error(`Selected model '${selectedModelId}' is not available. Please select a different model.`);
 			}
-		}
-		
-		// Fallback to default model if selected model not available
-		if (!model) {
-			const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
-			if (models.length === 0) {
-				throw new Error('No Copilot models available. Please ensure GitHub Copilot is installed and active.');
-			}
-			model = models[0];
+		} else {
+			throw new Error('No model selected. Please select a model from the portal before generating documentation.');
 		}
 		
 		// Create chat message
