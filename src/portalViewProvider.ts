@@ -46,10 +46,13 @@ export class PortalViewProvider implements vscode.Disposable {
 
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
-			this.postSnapshot();
-			this.postModels();
-			this.postIgnoreConfig();
-			this.postPromptConfig();
+			// Post updates only if we have data
+			if (availableModels || selectedModelId !== undefined || ignoreConfig || promptConfig) {
+				this.postSnapshot();
+				this.postModels();
+				this.postIgnoreConfig();
+				this.postPromptConfig();
+			}
 			return;
 		}
 
@@ -92,15 +95,35 @@ export class PortalViewProvider implements vscode.Disposable {
 							await vscode.commands.executeCommand('AgentsMDGenerator.updatePromptConfig', this.promptConfig);
 						}
 						break;
+					case 'ready':
+						// WebView is ready, send initial data
+						this.postSnapshot();
+						this.postModels();
+						this.postIgnoreConfig();
+						this.postPromptConfig();
+						break;
+					case 'openAgentsFile':
+						if (message.path) {
+							const agentsFilePath = vscode.Uri.file(message.path + '/AGENTS.md');
+							try {
+								const doc = await vscode.workspace.openTextDocument(agentsFilePath);
+								await vscode.window.showTextDocument(doc, { preview: false });
+							} catch (error) {
+								vscode.window.showErrorMessage(`Failed to open AGENTS.md: ${error}`);
+							}
+						}
+						break;
+					case 'generateSingleFolder':
+						if (message.path) {
+							await vscode.commands.executeCommand('AgentsMDGenerator.generateSingleFolder', message.path);
+						}
+						break;
 				}
 			})
 		);
 
 		this.panel.onDidDispose(() => this.clearPanel());
-		this.postSnapshot();
-		this.postModels();
-		this.postIgnoreConfig();
-		this.postPromptConfig();
+		// Don't post data here - wait for 'ready' message from webview
 	}
 
 	public update(snapshot: StatusSnapshot) {
@@ -405,8 +428,63 @@ export class PortalViewProvider implements vscode.Disposable {
 					border-radius: 50%;
 					background: currentColor;
 				}
+				.row-action-btn {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					width: 28px;
+					height: 28px;
+					background: rgba(33, 150, 243, 0.15);
+					color: #2196f3;
+					border: none;
+					border-radius: 4px;
+					cursor: pointer;
+					transition: background 0.2s ease;
+				}
+				.row-action-btn:hover {
+					background: rgba(33, 150, 243, 0.25);
+				}
+				.row-action-btn svg {
+					width: 14px;
+					height: 14px;
+					fill: currentColor;
+				}
 				.status-footer {
 					font-size: 12px;
+					color: var(--vscode-descriptionForeground);
+				}
+				.loading-overlay {
+					position: fixed;
+					top: 0;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					background: var(--vscode-sideBar-background);
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					gap: 16px;
+					z-index: 1000;
+					transition: opacity 0.3s ease;
+				}
+				.loading-overlay.hidden {
+					opacity: 0;
+					pointer-events: none;
+				}
+				.spinner {
+					width: 48px;
+					height: 48px;
+					border: 4px solid var(--vscode-editorGroup-border);
+					border-top-color: var(--vscode-button-background);
+					border-radius: 50%;
+					animation: spin 0.8s linear infinite;
+				}
+				@keyframes spin {
+					to { transform: rotate(360deg); }
+				}
+				.loading-text {
+					font-size: 14px;
 					color: var(--vscode-descriptionForeground);
 				}
 				.settings-section {
@@ -540,6 +618,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
 					const modelSelect = document.getElementById('modelSelect');
+					const loadingOverlay = document.getElementById('loadingOverlay');
 					
 					// Ignore settings elements
 					const settingsHeader = document.getElementById('settingsHeader');
@@ -571,6 +650,12 @@ export class PortalViewProvider implements vscode.Disposable {
 					let defaultIgnorePatterns = [];
 					let defaultMainTemplate = '';
 					let defaultSubfolderTemplate = '';
+					let dataLoaded = false;
+
+					// Notify extension that webview is ready
+					setTimeout(() => {
+						vscode.postMessage({ type: 'ready' });
+					}, 0);
 
 					generateButton.addEventListener('click', () => {
 						vscode.postMessage({ type: 'generate' });
@@ -647,14 +732,27 @@ export class PortalViewProvider implements vscode.Disposable {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
 							renderStatus(data);
+							hideLoadingIfReady();
 						} else if (type === 'modelsUpdate') {
 							renderModels(data);
+							hideLoadingIfReady();
 						} else if (type === 'ignoreConfigUpdate') {
 							renderIgnoreConfig(data);
+							hideLoadingIfReady();
 						} else if (type === 'promptConfigUpdate') {
 							renderPromptConfig(data);
+							hideLoadingIfReady();
 						}
 					});
+
+					function hideLoadingIfReady() {
+						if (!dataLoaded) {
+							dataLoaded = true;
+							setTimeout(() => {
+								loadingOverlay.classList.add('hidden');
+							}, 100);
+						}
+					}
 
 					function renderStatus(snapshot) {
 						totalCountEl.textContent = String(snapshot?.total ?? 0);
@@ -669,7 +767,7 @@ export class PortalViewProvider implements vscode.Disposable {
 							const emptyRow = document.createElement('tr');
 							emptyRow.className = 'empty-row';
 							const cell = document.createElement('td');
-							cell.colSpan = 5;
+							cell.colSpan = 6;
 							cell.textContent = 'Workspace has no folders to display.';
 							emptyRow.appendChild(cell);
 							tableBody.appendChild(emptyRow);
@@ -688,6 +786,27 @@ export class PortalViewProvider implements vscode.Disposable {
 							const folderName = document.createElement('span');
 							folderName.className = 'folder-label__name';
 							folderName.textContent = item.name || item.relativePath || item.path;
+							
+							// Make folder name clickable if AGENTS.md exists
+							if (item.hasAgentsFile) {
+								folderName.style.cursor = 'pointer';
+								folderName.style.color = 'var(--vscode-textLink-foreground)';
+								folderName.style.textDecoration = 'none';
+								folderName.addEventListener('mouseenter', () => {
+									folderName.style.textDecoration = 'underline';
+								});
+								folderName.addEventListener('mouseleave', () => {
+									folderName.style.textDecoration = 'none';
+								});
+								folderName.addEventListener('click', (e) => {
+									e.stopPropagation();
+									vscode.postMessage({ 
+										type: 'openAgentsFile', 
+										path: item.path 
+									});
+								});
+							}
+							
 							folderLabel.appendChild(folderName);
 
 							if (item.depth > 0 && item.relativePath && item.relativePath !== item.name) {
@@ -715,6 +834,21 @@ export class PortalViewProvider implements vscode.Disposable {
 							const docStateCell = document.createElement('td');
 							docStateCell.appendChild(createDocTag(item));
 							row.appendChild(docStateCell);
+
+							const actionsCell = document.createElement('td');
+							const generateBtn = document.createElement('button');
+							generateBtn.className = 'row-action-btn';
+							generateBtn.title = 'Generate AGENTS.md for this folder';
+							generateBtn.innerHTML = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 3L13 8l-8.5 5V3z"/></svg>';
+							generateBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								vscode.postMessage({ 
+									type: 'generateSingleFolder', 
+									path: item.path 
+								});
+							});
+							actionsCell.appendChild(generateBtn);
+							row.appendChild(actionsCell);
 
 							tableBody.appendChild(row);
 						});
@@ -858,6 +992,10 @@ export class PortalViewProvider implements vscode.Disposable {
 	${styles}
 </head>
 	<body>
+		<div id="loadingOverlay" class="loading-overlay">
+			<div class="spinner"></div>
+			<div class="loading-text">Loading portal data...</div>
+		</div>
 		<div class="portal">
 			<div class="portal__header">
 				<div class="portal__header-left">
@@ -988,11 +1126,12 @@ export class PortalViewProvider implements vscode.Disposable {
 								<th>Docs Updated</th>
 								<th>Content Updated</th>
 								<th>Documentation</th>
+								<th style="width: 60px;">Actions</th>
 							</tr>
 						</thead>
 						<tbody id="folderTableBody">
 							<tr class="empty-row">
-								<td colspan="5">Workspace has no folders to display.</td>
+								<td colspan="6">Workspace has no folders to display.</td>
 							</tr>
 						</tbody>
 					</table>

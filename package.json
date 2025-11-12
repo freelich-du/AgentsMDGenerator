@@ -24,6 +24,12 @@
         "command": "AgentsMDGenerator.openPortal",
         "title": "Open AGENTS.md Portal",
         "category": "AGENTS.md"
+      },
+      {
+        "command": "AgentsMDGenerator.generateAgentsMd",
+        "title": "Generate AGENTS.md files for all folders",
+        "icon": "$(file-add)",
+        "category": "AGENTS.md"
       }
     ]
   },
