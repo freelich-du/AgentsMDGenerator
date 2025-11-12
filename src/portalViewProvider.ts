@@ -983,7 +983,7 @@ export class PortalViewProvider implements vscode.Disposable {
 	<body>
 		<div id="loadingOverlay" class="loading-overlay">
 			<div class="spinner"></div>
-			<div class="loading-text">Loading portal data...</div>
+			<div class="loading-text">Loading workspace data...</div>
 		</div>
 		<div class="portal">
 			<div class="portal__header">
