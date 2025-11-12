@@ -732,16 +732,16 @@ export class PortalViewProvider implements vscode.Disposable {
 						const { type, data } = event.data ?? {};
 						if (type === 'statusUpdate') {
 							renderStatus(data);
-							hideLoadingIfReady();
+							// Only hide loading when we have actual status data
+							if (data && data.items && data.items.length > 0) {
+								hideLoadingIfReady();
+							}
 						} else if (type === 'modelsUpdate') {
 							renderModels(data);
-							hideLoadingIfReady();
 						} else if (type === 'ignoreConfigUpdate') {
 							renderIgnoreConfig(data);
-							hideLoadingIfReady();
 						} else if (type === 'promptConfigUpdate') {
 							renderPromptConfig(data);
-							hideLoadingIfReady();
 						}
 					});
 
