@@ -1,3 +1,4 @@
+
 export const DEFAULT_PROMPT_TEMPLATE = `You are a technical documentation expert. Analyze the following folder and generate a concise AGENTS.md file.
 
 CRITICAL INSTRUCTIONS:
@@ -6,6 +7,7 @@ CRITICAL INSTRUCTIONS:
 3. For sub-folders WITHOUT AGENTS.md, analyze their code files (provided in the folder structure)
 4. Keep the documentation CONCISE but informative
 5. ONLY include redirect links to sub-folders that actually have AGENTS.md files (provided below)
+6. **You MUST NOT mention or describe any function, class, file, or symbol unless it actually exists in the provided code context. Do NOT invent, guess, or hallucinate names.**
 
 Required Sections:
 
@@ -19,11 +21,11 @@ Comprehensive description (3-5 sentences) covering:
 ## Key Components
 List the main files/modules with their specific roles (based on actual code analysis):
 - **filename.ext**: Brief description (2-3 sentences) including:
-  - Primary responsibility
-  - Key functions/classes/exports (list 2-3 most important ones)
-  - How it fits in the overall architecture
+	- Primary responsibility
+	- Key functions/classes/exports (list 2-3 most important ones; only mention those that actually exist in the code)
+	- How it fits in the overall architecture
 
-NOTE: Include files from sub-folders that don't have AGENTS.md yet (format as "subfolder/filename.ext")
+NOTE: Include files from sub-folders that don't have AGENTS.md yet (format as "subfolder/filename.ext"). **Do not mention any function, class, or symbol unless it is present in the provided code.**
 
 ## Sub-folders (CONDITIONAL - see instructions below)
 {{SUBFOLDER_CONTEXT}}
@@ -44,12 +46,13 @@ Folder Information:
 
 IMPORTANT: 
 - Analyze actual code content, especially function/class definitions and imports
-- Include 2-3 key functions/classes per file in Key Components
+- Include 2-3 key functions/classes per file in Key Components, but ONLY if they exist in the code
 - Identify external dependencies from import/require statements in the code
 - Document files from sub-folders WITHOUT AGENTS.md in the Key Components section
 - ONLY reference sub-folders that are listed in the Sub-folders section above
 - Be thorough and comprehensive - if there are many files or complex/critical files, provide more detailed documentation as needed
 - Quality and completeness are more important than brevity
+- **Never mention or describe any function, class, file, or symbol unless it is present in the provided code context.**
 
 After generating the above sections, ALWAYS append this maintenance section at the end:
 
@@ -64,6 +67,7 @@ After generating the above sections, ALWAYS append this maintenance section at t
 
 This documentation helps future developers (and AI agents) understand the codebase quickly.`;
 
+
 export const DEFAULT_SUBFOLDER_CONTEXT_TEMPLATE = `
 The following sub-folders have AGENTS.md documentation:
 
@@ -71,10 +75,10 @@ The following sub-folders have AGENTS.md documentation:
 
 INSTRUCTIONS for Sub-folders sections:
 1. Replace "## Sub-folders (CONDITIONAL - see instructions below)" with "## Sub-folders"
-2. List and briefly describe the documented sub-folders above
+2. List and briefly describe the documented sub-folders above. **Only mention sub-folders and their contents if they actually exist in the provided context. Do not invent or guess names.**
 3. Replace "## For More Details (CONDITIONAL - see instructions below)" with "## For More Details"
 4. In the "For More Details" section, provide links to each subfolder's AGENTS.md
-   Format: "- For [topic covered in that subfolder]: See [subfolder-name]/AGENTS.md"`;
+	Format: "- For [topic covered in that subfolder]: See [subfolder-name]/AGENTS.md"`;
 
 export interface PromptConfig {
 	mainTemplate: string;
