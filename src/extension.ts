@@ -274,6 +274,22 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(generateOutdatedCommand);
 
+	const refreshStatusCommand = vscode.commands.registerCommand('AgentsMDGenerator.refreshStatusSnapshot', async () => {
+		try {
+			if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+				workspaceRootPath = '';
+				vscode.window.showErrorMessage('No workspace folder is open. Please open a folder first.');
+				return;
+			}
+
+			await doRefreshWorkspaceFolders();
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error refreshing folder status: ${error}`);
+		}
+	});
+
+	context.subscriptions.push(refreshStatusCommand);
+
 	// Register the command to generate AGENTS.md for a single folder
 	const generateSingleFolderCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateSingleFolder', async (folderPath: string) => {
 		try {

@@ -77,6 +77,9 @@ export class PortalViewProvider implements vscode.Disposable {
 					case 'generateOutdated':
 						await vscode.commands.executeCommand('AgentsMDGenerator.generateOutdatedFolders');
 						break;
+					case 'refreshStatus':
+						await vscode.commands.executeCommand('AgentsMDGenerator.refreshStatusSnapshot');
+						break;
 					case 'selectModel':
 						if (message.modelId) {
 							this.selectedModelId = message.modelId;
@@ -346,10 +349,17 @@ export class PortalViewProvider implements vscode.Disposable {
 				}
 				.status-header {
 					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 8px;
+					flex-wrap: wrap;
+				}
+				.status-header__text {
+					display: flex;
 					flex-direction: column;
 					gap: 4px;
 				}
-				.status-header h2 {
+				.status-header__text h2 {
 					margin: 0;
 					font-size: 16px;
 					font-weight: 600;
@@ -357,6 +367,49 @@ export class PortalViewProvider implements vscode.Disposable {
 				.status-header__hint {
 					color: var(--vscode-descriptionForeground);
 					font-size: 12px;
+				}
+				.status-refresh-btn {
+					display: inline-flex;
+					align-items: center;
+					gap: 6px;
+					background: var(--vscode-button-background, #0277bd);
+					color: var(--vscode-button-foreground, #ffffff);
+					border: none;
+					border-radius: 6px;
+					padding: 6px 12px;
+					cursor: pointer;
+					font-size: 12px;
+					font-weight: 600;
+					transition: background 0.2s ease, transform 0.2s ease;
+					white-space: nowrap;
+				}
+				.status-refresh-btn:hover {
+					background: var(--vscode-button-hoverBackground, #015a8c);
+					transform: translateY(-1px);
+				}
+				.status-refresh-btn:disabled {
+					opacity: 0.6;
+					cursor: not-allowed;
+					transform: none;
+				}
+				.status-refresh-btn__spinner {
+					width: 14px;
+					height: 14px;
+					border: 2px solid rgba(255, 255, 255, 0.4);
+					border-top-color: var(--vscode-button-foreground, #ffffff);
+					border-radius: 50%;
+					animation: status-refresh-spin 0.9s linear infinite;
+					display: none;
+				}
+				.status-refresh-btn--loading .status-refresh-btn__spinner {
+					display: inline-block;
+				}
+				.status-refresh-btn--loading .status-refresh-btn__label {
+					opacity: 0.85;
+				}
+				@keyframes status-refresh-spin {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
 				}
 				.table-container {
 					background: var(--vscode-editorWidget-background);
@@ -636,6 +689,7 @@ export class PortalViewProvider implements vscode.Disposable {
 					const generateButton = document.getElementById('generateButton');
 					const generateOutdatedButton = document.getElementById('generateOutdatedButton');
 					const outdatedButtonBaseLabel = (generateOutdatedButton?.textContent ?? 'Generate Out-of-date Folders').trim();
+					const refreshStatusButton = document.getElementById('refreshStatusButton');
 					const modelSelect = document.getElementById('modelSelect');
 					const loadingOverlay = document.getElementById('loadingOverlay');
 
@@ -688,6 +742,13 @@ export class PortalViewProvider implements vscode.Disposable {
 					if (generateOutdatedButton) {
 						generateOutdatedButton.addEventListener('click', () => {
 							vscode.postMessage({ type: 'generateOutdated' });
+						});
+					}
+
+					if (refreshStatusButton) {
+						refreshStatusButton.addEventListener('click', () => {
+							setRefreshButtonLoading(true);
+							vscode.postMessage({ type: 'refreshStatus' });
 						});
 					}
 
@@ -784,6 +845,19 @@ export class PortalViewProvider implements vscode.Disposable {
 						}
 					}
 
+					function setRefreshButtonLoading(isLoading) {
+						if (!refreshStatusButton) {
+							return;
+						}
+						if (isLoading) {
+							refreshStatusButton.classList.add('status-refresh-btn--loading');
+							refreshStatusButton.disabled = true;
+						} else {
+							refreshStatusButton.classList.remove('status-refresh-btn--loading');
+							refreshStatusButton.disabled = false;
+						}
+					}
+
 					function updateOutdatedButton(snapshot) {
 						if (!generateOutdatedButton) {
 							return;
@@ -808,6 +882,7 @@ export class PortalViewProvider implements vscode.Disposable {
 						inProgressCountEl.textContent = String(snapshot?.inProgress ?? 0);
 						failedCountEl.textContent = String(snapshot?.failed ?? 0);
 						lastUpdatedEl.textContent = snapshot?.lastUpdated || '--';
+						setRefreshButtonLoading(false);
 						updateOutdatedButton(snapshot);
 
 						tableBody.innerHTML = '';
@@ -1153,8 +1228,14 @@ export class PortalViewProvider implements vscode.Disposable {
 
 			<section class="portal__status">
 				<div class="status-header">
-					<h2>Folder Status</h2>
-					<span class="status-header__hint">Live view of documentation freshness</span>
+					<div class="status-header__text">
+						<h2>Folder Status</h2>
+						<span class="status-header__hint">Live view of documentation freshness</span>
+					</div>
+					<button id="refreshStatusButton" class="status-refresh-btn" title="Refresh folder status">
+						<span class="status-refresh-btn__spinner" aria-hidden="true"></span>
+						<span class="status-refresh-btn__label">Refresh</span>
+					</button>
 				</div>
 				<div class="table-container">
 					<table class="status-table">
