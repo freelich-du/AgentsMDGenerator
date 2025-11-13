@@ -8,7 +8,7 @@ import { updateIgnoreConfig, getIgnoreConfig } from './ignoreConfig';
 import { updatePromptConfig, getPromptConfig, PromptConfig } from './promptConfig';
 import { getAvailableModels, getDefaultModelId } from './modelSelector';
 import { generateAgentsMdForFolder } from './documentationGenerator';
-import { updatePortalStatus } from './statusManager';
+import { updatePortalStatus, getFolderStatusDetails } from './statusManager';
 import { refreshWorkspaceFolders } from './workspaceManager';
 
 let portalViewProvider: PortalViewProvider | undefined;
@@ -202,6 +202,77 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(generateCommand);
+
+	const generateOutdatedCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateOutdatedFolders', async () => {
+		try {
+			if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+				workspaceRootPath = '';
+				vscode.window.showErrorMessage('No workspace folder is open. Please open a folder first.');
+				return;
+			}
+
+			await doRefreshWorkspaceFolders();
+			const availableModels = await getAvailableModels();
+			const ignoreConfig = getIgnoreConfig();
+			const promptConfig = getPromptConfig();
+			portalViewProvider?.showPortal(availableModels, selectedModelId, ignoreConfig, promptConfig);
+
+			const detailsList = await Promise.all(discoveredFolders.map(async (folderNode) => ({
+				folderNode,
+				details: await getFolderStatusDetails(folderNode.path)
+			})));
+			const outdatedFolders = detailsList
+				.filter((entry) => !entry.details.isUpToDate)
+				.map((entry) => entry.folderNode);
+
+			if (outdatedFolders.length === 0) {
+				vscode.window.showInformationMessage('All folders appear up to date. No generation needed.');
+				return;
+			}
+
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: 'Generating AGENTS.md for out-of-date folders',
+				cancellable: true
+			}, async (progress, token) => {
+				const totalFolders = outdatedFolders.length;
+				progress.report({ message: `Found ${totalFolders} folder(s) needing updates (leaf to root)` });
+
+				let processed = 0;
+
+				for (const folderNode of outdatedFolders) {
+					if (token.isCancellationRequested) {
+						vscode.window.showWarningMessage('Out-of-date folder generation cancelled');
+						return;
+					}
+
+					progress.report({
+						message: `Processing folder ${processed + 1}/${totalFolders}: ${folderNode.name}`,
+						increment: (100 / totalFolders)
+					});
+
+					folderStatusMap.set(folderNode.path, GenerationStatus.InProgress);
+					await doUpdatePortalStatus();
+
+					const success = await generateAgentsMdForFolder(folderNode, selectedModelId);
+
+					folderStatusMap.set(
+						folderNode.path,
+						success ? GenerationStatus.Completed : GenerationStatus.Failed
+					);
+					await doUpdatePortalStatus();
+
+					processed++;
+				}
+
+				vscode.window.showInformationMessage(`Finished processing ${processed} out-of-date folder(s).`);
+			});
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error generating AGENTS.md for out-of-date folders: ${error}`);
+		}
+	});
+
+	context.subscriptions.push(generateOutdatedCommand);
 
 	// Register the command to generate AGENTS.md for a single folder
 	const generateSingleFolderCommand = vscode.commands.registerCommand('AgentsMDGenerator.generateSingleFolder', async (folderPath: string) => {

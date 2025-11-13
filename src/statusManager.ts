@@ -95,7 +95,7 @@ async function buildStatusSnapshot(
 /**
  * Get status details for a folder
  */
-async function getFolderStatusDetails(folderPath: string): Promise<FolderDocStatusDetails> {
+export async function getFolderStatusDetails(folderPath: string): Promise<FolderDocStatusDetails> {
 	const agentsPath = path.join(folderPath, 'AGENTS.md');
 	let agentsMtimeMs: number | undefined;
 

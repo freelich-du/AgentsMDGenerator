@@ -74,6 +74,9 @@ export class PortalViewProvider implements vscode.Disposable {
 					case 'generate':
 						await vscode.commands.executeCommand('AgentsMDGenerator.generateAgentsMd');
 						break;
+					case 'generateOutdated':
+						await vscode.commands.executeCommand('AgentsMDGenerator.generateOutdatedFolders');
+						break;
 					case 'selectModel':
 						if (message.modelId) {
 							this.selectedModelId = message.modelId;
@@ -237,6 +240,8 @@ export class PortalViewProvider implements vscode.Disposable {
 					display: flex;
 					align-items: center;
 					gap: 12px;
+					flex-wrap: wrap;
+					justify-content: flex-end;
 				}
 				.portal__header h1 {
 					margin: 0;
@@ -296,6 +301,18 @@ export class PortalViewProvider implements vscode.Disposable {
 				.generate-btn:hover {
 					background: var(--vscode-button-hoverBackground, #015a8c);
 					transform: translateY(-1px);
+				}
+				.generate-btn:disabled {
+					opacity: 0.6;
+					cursor: not-allowed;
+					transform: none;
+				}
+				.generate-btn--secondary {
+					background: var(--vscode-button-background, #0277bd);
+					color: var(--vscode-button-foreground, #ffffff);
+				}
+				.generate-btn--secondary:hover {
+					background: var(--vscode-button-hoverBackground, #015a8c);
 				}
 				.portal__metrics {
 					display: grid;
@@ -617,8 +634,15 @@ export class PortalViewProvider implements vscode.Disposable {
 				(() => {
 					const vscode = acquireVsCodeApi();
 					const generateButton = document.getElementById('generateButton');
+					const generateOutdatedButton = document.getElementById('generateOutdatedButton');
+					const outdatedButtonBaseLabel = (generateOutdatedButton?.textContent ?? 'Generate Out-of-date Folders').trim();
 					const modelSelect = document.getElementById('modelSelect');
 					const loadingOverlay = document.getElementById('loadingOverlay');
+
+					if (generateOutdatedButton) {
+						generateOutdatedButton.disabled = true;
+						generateOutdatedButton.title = 'Waiting for status data...';
+					}
 					
 					// Ignore settings elements
 					const settingsHeader = document.getElementById('settingsHeader');
@@ -660,6 +684,12 @@ export class PortalViewProvider implements vscode.Disposable {
 					generateButton.addEventListener('click', () => {
 						vscode.postMessage({ type: 'generate' });
 					});
+
+					if (generateOutdatedButton) {
+						generateOutdatedButton.addEventListener('click', () => {
+							vscode.postMessage({ type: 'generateOutdated' });
+						});
+					}
 
 					modelSelect.addEventListener('change', (event) => {
 						const modelId = event.target.value;
@@ -754,12 +784,31 @@ export class PortalViewProvider implements vscode.Disposable {
 						}
 					}
 
+					function updateOutdatedButton(snapshot) {
+						if (!generateOutdatedButton) {
+							return;
+						}
+						const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
+						const hasItems = items.length > 0;
+						const outdatedCount = hasItems ? items.filter((item) => !item.isUpToDate).length : 0;
+						generateOutdatedButton.disabled = !hasItems || outdatedCount === 0;
+						generateOutdatedButton.textContent = outdatedButtonBaseLabel + ' (' + outdatedCount + ')';
+						if (!hasItems) {
+							generateOutdatedButton.title = 'Waiting for status data...';
+						} else if (outdatedCount === 0) {
+							generateOutdatedButton.title = 'All folders appear up to date.';
+						} else {
+							generateOutdatedButton.title = 'Generate AGENTS.md only for folders that are missing or outdated.';
+						}
+					}
+
 					function renderStatus(snapshot) {
 						totalCountEl.textContent = String(snapshot?.total ?? 0);
 						completedCountEl.textContent = String(snapshot?.completed ?? 0);
 						inProgressCountEl.textContent = String(snapshot?.inProgress ?? 0);
 						failedCountEl.textContent = String(snapshot?.failed ?? 0);
 						lastUpdatedEl.textContent = snapshot?.lastUpdated || '--';
+						updateOutdatedButton(snapshot);
 
 						tableBody.innerHTML = '';
 
@@ -1002,6 +1051,7 @@ export class PortalViewProvider implements vscode.Disposable {
 							<option value="">Loading models...</option>
 						</select>
 					</div>
+					<button id="generateOutdatedButton" class="generate-btn generate-btn--secondary" title="Generate only folders that are missing or outdated">Generate Out-of-date Folders</button>
 					<button id="generateButton" class="generate-btn">Generate AGENTS.md Files</button>
 				</div>
 			</div>
