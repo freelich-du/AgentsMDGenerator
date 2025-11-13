@@ -2,7 +2,7 @@
   "name": "agents-md-generator",
   "displayName": "AGENTS.md Generator",
   "description": "Generate AGENTS.md files for folders using GitHub Copilot Chat",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local-dev",
   "repository": {
     "type": "git",
